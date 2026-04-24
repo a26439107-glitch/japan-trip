@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#16162a">
+<title>🇯🇵 東北・北信越</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+:root {
+  --bg: #1e1e1e;
+  --surface: #262626;
+  --card: #2a2a2a;
+  --card2: #242424;
+  --accent: #8b5cf6;
+  --accent2: #a78bfa;
+  --text: #dcddde;
+  --text2: #999999;
+  --text3: #6c6c6c;
+  --border: #363636;
+  --green: #4caf7f;
+  --orange: #d9894e;
+  --red: #c85a5a;
+  --blue: #5a8bc8;
+  --r: 10px;
+  --rs: 6px;
+  --nav-h: 68px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,'Helvetica Neue',sans-serif;background:var(--bg);color:var(--text)}
+button,input,select,textarea{font-family:inherit}
+
+/* ── APP SHELL ── */
+#app{position:relative;width:100%;max-width:430px;height:100vh;margin:0 auto;overflow:hidden;display:flex;flex-direction:column}
+
+/* ── MAP ── */
+#map{position:absolute;top:0;left:0;right:0;height:42%;z-index:1;transition:height .3s}
+#map.hidden{height:0!important}
+.leaflet-control-attribution{display:none}
+.leaflet-tile-pane{filter:grayscale(1) brightness(1.02) contrast(.92)}
+#map{background:#d8d8d8}
+
+/* ── HEADER ── */
+.hdr{position:relative;z-index:10;display:flex;align-items:center;padding:14px 16px 10px;background:var(--bg)}
+.hdr-title{font-size:19px;font-weight:700;flex:1}
+.hdr-btn{background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:8px}
+.hdr-btn:active{background:rgba(255,255,255,.1)}
+
+/* ── PANEL ── */
+.panel{position:absolute;bottom:0;left:0;right:0;z-index:20;background:var(--bg);border-radius:22px 22px 0 0;height:63%;display:flex;flex-direction:column;transition:height .3s}
+.panel.full{height:100%!important;border-radius:0}
+.panel-handle{width:36px;height:4px;background:var(--text3);border-radius:2px;margin:10px auto 0;cursor:grab;flex-shrink:0}
+
+/* ── DATE STRIP ── */
+.date-strip{display:flex;gap:6px;padding:10px 14px 6px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+.date-strip::-webkit-scrollbar{display:none}
+.dc{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:54px;padding:10px 8px;border-radius:12px;cursor:pointer;transition:all .2s;flex-shrink:0;color:var(--text3)}
+.dc.active{background:var(--accent);color:#fff}
+.dc .dn{font-size:15px;font-weight:700;line-height:1.1}
+.dc .dl{font-size:12px;margin-top:4px;line-height:1}
+.dc .dd{width:5px;height:5px;border-radius:50%;background:var(--accent2);margin-top:4px;opacity:0}
+.dc.has-items .dd{opacity:1}
+.dc.active .dd{background:white}
+
+/* ── SCROLL AREA ── */
+.tab-area{flex:1;overflow-y:auto;padding-bottom:calc(var(--nav-h) + 8px);overscroll-behavior:contain}
+.tab-area::-webkit-scrollbar{display:none}
+
+/* ── BOTTOM NAV ── */
+.bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;height:var(--nav-h);background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;cursor:pointer;color:var(--text3);font-size:10.5px;transition:color .2s;border:none;background:none}
+.ni.active{color:var(--accent)}
+.ni svg{width:22px;height:22px}
+
+/* ── FAB ── */
+.fab{position:fixed;bottom:calc(var(--nav-h) + 14px);left:50%;transform:translateX(-50%);width:50px;height:50px;border-radius:50%;background:var(--accent);border:none;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 4px 20px rgba(123,108,246,.45);z-index:50;display:flex;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s}
+.fab:active{transform:translateX(-50%) scale(.93);box-shadow:0 2px 10px rgba(123,108,246,.3)}
+.fab.hidden{display:none}
+
+/* ── CARDS ── */
+.card{background:var(--card);border-radius:var(--r);margin:0 14px 10px;overflow:hidden}
+
+/* ── FLIGHT TICKET ── */
+.fcard{background:var(--card);border-radius:var(--r);margin:0 14px 8px;padding:12px 16px;position:relative;overflow:hidden;cursor:pointer;border:1px solid var(--border)}
+.ftop{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.ftime{font-size:28px;font-weight:400;letter-spacing:.5px;line-height:1;flex-shrink:0}
+.fmid{flex:1;display:flex;align-items:center}
+.fline{width:100%;display:flex;align-items:center;gap:0}
+.fdot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0}
+.fdash{flex:1;height:1px;background:var(--border)}
+.fahead{color:var(--text3);font-size:14px;line-height:1;flex-shrink:0}
+.fdur{font-size:10px;color:var(--text3);letter-spacing:.3px;text-align:center;margin-bottom:6px}
+.fbot{display:flex;align-items:center;justify-content:space-between}
+.fcode{font-size:11px;font-weight:700;background:rgba(139,92,246,.15);color:var(--accent2);padding:3px 8px;border-radius:6px;letter-spacing:.5px}
+.finfo{display:flex;align-items:center;justify-content:center;gap:6px;flex:1;padding:0 10px}
+.fainame{font-size:11px;color:var(--text2)}
+.fnum{font-size:11px;font-weight:600;color:var(--text2)}
+.tdiv{display:flex;align-items:center;margin:10px -12px}
+
+.tcirc{width:18px;height:18px;border-radius:50%;background:var(--bg);flex-shrink:0}
+.tdash{flex:1;border-top:2px dashed var(--border);margin:0 4px}
+.ffoot{display:flex;justify-content:space-between;font-size:11px;color:var(--text2)}
+
+/* ── ITINERARY ITEMS ── */
+.ilist{padding:0}
+.iitem{display:flex;align-items:flex-start;gap:14px;padding:11px 14px;position:relative;cursor:pointer;transition:background .15s;border-radius:0}
+.iitem:active{background:rgba(255,255,255,.03)}
+.iitem:not(:last-child)::after{content:'';position:absolute;left:52px;top:44px;bottom:0;width:2px;background:var(--border)}
+.itime{font-size:12px;color:var(--text2);min-width:38px;padding-top:5px;flex-shrink:0}
+.iico{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;position:relative;z-index:1}
+.ibody{flex:1;min-width:0}
+.ititle{font-size:14px;font-weight:600;line-height:1.3}
+.isub{font-size:11px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.itag{display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 7px;border-radius:20px;margin-top:4px}
+.iacts{display:flex;gap:6px;align-items:center;flex-shrink:0;opacity:0;transition:opacity .2s}
+.iitem:hover .iacts{opacity:1}
+.abtn{width:26px;height:26px;border:none;background:var(--bg);border-radius:6px;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px}
+.drag-h{color:var(--text3);cursor:grab;padding:4px 2px;font-size:16px;flex-shrink:0;touch-action:none;line-height:1}
+
+/* ── WEATHER ── */
+.wx{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(123,108,246,.08);border-radius:var(--r);margin:0 14px 10px;border:1px solid rgba(123,108,246,.15)}
+.wx-ico{font-size:26px}
+.wx-info{flex:1}
+.wx-loc{font-size:10px;color:var(--text3)}
+.wx-temp{font-size:18px;font-weight:700}
+.wx-right{text-align:right;font-size:12px;color:var(--text2)}
+
+/* ── PANEL HANDLE ── */
+.panel.full .panel-handle{display:none}
+
+/* ── DAY TITLE ── */
+.day-title-wrap{padding:14px 14px 10px}
+.day-title{font-size:20px;font-weight:700;line-height:1.3;outline:none;border-radius:6px;padding:0;transition:background .15s;color:var(--text);cursor:text;display:block;width:100%;box-sizing:border-box;word-break:break-word;user-select:none}
+.day-title:focus{outline:none;padding:4px;margin:-4px}
+.day-title:focus{background:rgba(255,255,255,.06);user-select:text}
+.day-title:empty::before{content:'為今日命名...';color:var(--text3);font-weight:400;font-size:18px}
+.day-title-sub{display:none;font-size:12px;color:var(--text3);margin-top:4px;padding-left:4px}
+.day-title-wrap.focused .day-title-sub{display:block}
+
+/* ── SECTION HEADER ── */
+.sh{display:flex;justify-content:space-between;align-items:center;padding:6px 14px 4px}
+.sh-title{font-size:11px;color:var(--text2);font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+.sh-btn{background:var(--accent);border:none;color:#fff;padding:4px 12px;border-radius:20px;font-size:11px;cursor:pointer}
+
+/* ── EXPENSE DASHBOARD ── */
+.dgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 14px 10px}
+.scard{background:var(--card);border-radius:var(--r);padding:13px;text-align:center}
+.sv{font-size:16px;font-weight:800;line-height:1}
+.sl{font-size:10px;color:var(--text2);margin-top:4px}
+.chart-wrap{background:var(--card);border-radius:var(--r);margin:0 14px 10px;padding:16px}
+.chart-ttl{font-size:13px;font-weight:600;margin-bottom:12px}
+.legend-item{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+/* ── EXPENSE ITEMS ── */
+.eitem{display:flex;align-items:center;gap:14px;padding:12px 14px;background:var(--card);border-radius:var(--r);margin:0 14px 8px;cursor:pointer;transition:transform .15s}
+.eitem:active{transform:scale(.98)}
+.eico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.ebody{flex:1;min-width:0}
+.etitle{font-size:13px;font-weight:600}
+.edate{font-size:10px;color:var(--text2);margin-top:2px}
+.eamt{font-size:15px;font-weight:800;color:var(--accent)}
+
+/* ── RATE ── */
+.rcard{background:var(--card);border-radius:var(--r);margin:0 14px 10px;padding:20px}
+.rinput-wrap{display:flex;align-items:center;gap:8px}
+.rcurr{font-size:22px;font-weight:700;color:var(--text2);width:20px}
+
+/* ── TODO ── */
+.titem{display:flex;align-items:center;gap:14px;padding:12px 14px;background:var(--card);border-radius:var(--r);margin:0 14px 8px}
+.tchk{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .2s}
+.tchk.done{background:var(--green);border-color:var(--green)}
+.ttxt{flex:1;font-size:13px;cursor:pointer}
+.ttxt.done{text-decoration:line-through;color:var(--text3)}
+.tdate{font-size:10px;color:var(--text3);margin-top:2px}
+
+/* ── BOTTOM SHEET ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;opacity:0;pointer-events:none;transition:opacity .3s}
+.overlay.on{opacity:1;pointer-events:all}
+.bsheet{position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(102%);width:100%;max-width:430px;background:var(--surface);border-radius:22px 22px 0 0;z-index:201;transition:transform .32s cubic-bezier(.32,.72,0,1);max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.bsheet.on{transform:translateX(-50%) translateY(0)}
+.bs-handle{width:34px;height:4px;background:var(--text3);border-radius:2px;margin:10px auto 0;flex-shrink:0}
+.bs-hdr{display:flex;align-items:center;padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.bs-title{font-size:16px;font-weight:700;flex:1}
+.bs-close{background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:4px;border-radius:8px}
+.bs-body{flex:1;overflow-y:auto;padding:14px}
+.bs-body::-webkit-scrollbar{display:none}
+
+/* ── FORMS ── */
+.fg{margin-bottom:14px}
+.fl{font-size:11px;color:var(--text2);margin-bottom:5px;display:block;font-weight:600}
+.fi{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--rs);color:var(--text);padding:11px 13px;font-size:14px;outline:none;transition:border .2s;-webkit-appearance:none}
+.fi:focus{border-color:var(--accent)}
+.fi::placeholder{color:var(--text3)}
+.frow{display:flex;gap:10px}
+.frow .fg{flex:1}
+
+/* ── CATEGORY CHIPS ── */
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}
+.chip{padding:6px 13px;border-radius:20px;border:1.5px solid var(--border);font-size:12px;cursor:pointer;transition:all .2s;background:var(--bg)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* ── BUTTONS ── */
+.btn{padding:13px;border-radius:var(--r);border:none;font-size:14px;font-weight:700;cursor:pointer;width:100%;transition:transform .15s,opacity .2s}
+.btn:active{transform:scale(.97)}
+.btn-p{background:var(--accent);color:#fff}
+.btn-d{background:rgba(224,85,85,.15);color:var(--red);border:1.5px solid var(--red);margin-top:8px}
+.btn-g{background:var(--border);color:var(--text2)}
+
+/* ── RECEIPT ── */
+.rec-upload{display:block;border:2px dashed var(--border);border-radius:var(--r);padding:28px;text-align:center;cursor:pointer;transition:border .2s;margin-bottom:12px;background:var(--bg)}
+.rec-upload:hover{border-color:var(--accent)}
+
+/* ── MISC ── */
+.empty{text-align:center;padding:48px 20px;color:var(--text3)}
+.empty .ei{font-size:42px;margin-bottom:10px}
+.empty p{font-size:13px}
+.divider{height:1px;background:var(--border);margin:4px 14px 12px}
+.badge{display:inline-flex;background:var(--accent);color:#fff;border-radius:20px;font-size:10px;padding:2px 8px;font-weight:700;margin-left:6px;vertical-align:middle}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.anim{animation:fadeUp .25s ease forwards}
+
+/* ── PROGRESS BAR ── */
+.prog-wrap{background:var(--border);border-radius:4px;height:6px;overflow:hidden;margin-top:8px}
+.prog-bar{height:100%;border-radius:4px;background:var(--accent);transition:width .4s}
+
+/* ── INLINE ADD BUTTON (行程/旅費 尾端) ── */
+.add-inline{display:block;width:calc(100% - 28px);margin:8px 14px 14px;padding:12px;background:transparent;border:1.5px dashed var(--border);border-radius:var(--r);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.add-inline:hover{border-color:var(--accent);color:var(--accent);background:rgba(139,92,246,.05)}
+.sh-plus{background:none;border:none;color:var(--accent);font-size:18px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:6px}
+.sh-plus:hover{background:rgba(139,92,246,.15)}
+.legend-amt{font-size:11px;color:var(--text3);font-weight:400;margin-left:6px}
+.legend-pct{font-size:12px;color:var(--text);font-weight:700}
+
+/* ── TAB BAR CENTER PLUS ── */
+.ni-plus{width:52px;height:52px;border-radius:50%;background:var(--accent);color:#fff;margin-top:-22px;border:4px solid var(--surface);box-shadow:0 4px 14px rgba(139,92,246,.5);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:300;line-height:1;flex-shrink:0;cursor:pointer;transition:transform .15s,opacity .2s,background .2s}
+.ni-plus:active{transform:scale(.92)}
+.ni-plus.hidden{opacity:0;pointer-events:none;transform:scale(.8)}
+
+/* ── SUB TABS (expense) ── */
+.sub-tabs{display:flex;gap:4px;margin:0 14px 10px;background:var(--card);border-radius:var(--r);padding:4px}
+.sub-tab{flex:1;padding:9px 12px;text-align:center;background:none;border:none;color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;border-radius:6px;transition:all .2s}
+.sub-tab.on{background:var(--accent);color:#fff}
+
+/* ── PRE-TRIP SUMMARY ── */
+.pretrip-summary{background:var(--card);border-radius:var(--r);padding:14px;margin:0 14px 10px;display:flex;align-items:center;gap:12px}
+.pre-cat-chips{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 10px}
+.pre-cat-chip{padding:5px 10px;border-radius:20px;font-size:11px;font-weight:600}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+
+  <div class="hdr">
+    <div class="hdr-title">🇯🇵 東北・北信越</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div id="syncDot" title="連線中..." style="width:8px;height:8px;border-radius:50%;background:var(--text3);transition:background .4s"></div>
+      <button class="hdr-btn" onclick="openSettings()">⚙</button>
+    </div>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="panel-handle" id="panelHandle"></div>
+    <div class="date-strip" id="dateStrip"></div>
+    <div class="tab-area" id="tabArea"></div>
+  </div>
+
+  <nav class="bnav">
+    <button class="ni active" id="ni-iti" onclick="switchTab('iti')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>行程
+    </button>
+    <button class="ni" id="ni-exp" onclick="switchTab('exp')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>記帳
+    </button>
+    <button class="ni-plus" id="niPlus" onclick="handlePlus()">＋</button>
+    <button class="ni" id="ni-rate" onclick="switchTab('rate')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>匯率
+    </button>
+    <button class="ni" id="ni-todo" onclick="switchTab('todo')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Todo
+    </button>
+  </nav>
+</div>
+
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+<div class="bsheet" id="bsheet">
+  <div class="bs-handle"></div>
+  <div class="bs-hdr">
+    <div class="bs-title" id="bsTitle"></div>
+    <button class="bs-close" onclick="closeSheet()">✕</button>
+  </div>
+  <div class="bs-body" id="bsBody"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════
+const T0 = '2026-07-25', T1 = '2026-08-06';
+const DAYS = ['日','一','二','三','四','五','六'];
+
+const ICAT = {
+  flight:   {l:'航班',  i:'✈️', c:'#7b6cf6'},
+  hotel:    {l:'飯店',  i:'🏨', c:'#ff6b6b'},
+  food:     {l:'餐飲',  i:'🍜', c:'#ff9f43'},
+  transport:{l:'交通',  i:'🚆', c:'#54a0ff'},
+  spot:     {l:'景點',  i:'📍', c:'#7b6cf6'},
+  shopping: {l:'購物',  i:'🛍', c:'#00d2d3'},
+  activity: {l:'活動',  i:'🎌', c:'#1dd1a1'},
+  other:    {l:'其他',  i:'📌', c:'#8395a7'},
+};
+const ECAT = {
+  food:          {l:'餐飲', i:'🍜', c:'#ff9f43'},
+  transport:     {l:'交通', i:'🚆', c:'#54a0ff'},
+  accommodation: {l:'住宿', i:'🏨', c:'#ff6b6b'},
+  shopping:      {l:'購物', i:'🛍', c:'#00d2d3'},
+  activity:      {l:'活動', i:'🎌', c:'#1dd1a1'},
+  other:         {l:'其他', i:'📌', c:'#8395a7'},
+};
+
+// ═══════════════════════════════════════════════
+// DEFAULT DATA
+// ═══════════════════════════════════════════════
+const DEF = {
+  tab:'iti', date:'2026-07-25', budget:200000, apiKey:'', expSubTab:'detail', dayTitles:{},
+  itiItems:[
+    // 7/25 flights
+    {id:'f1',date:'2026-07-25',cat:'flight',isFlight:true,flightNo:'TW664',airline:'德威航空 T\'way',depCode:'TPE',arrCode:'TAE',depTime:'06:00',arrTime:'09:00',dur:120,title:'TW664 桃園→大邱',time:'06:00',note:'轉機大邱'},
+    {id:'f2',date:'2026-07-25',cat:'flight',isFlight:true,flightNo:'TW251',airline:'德威航空 T\'way',depCode:'TAE',arrCode:'NRT',depTime:'10:40',arrTime:'12:45',dur:125,title:'TW251 大邱→成田',time:'10:40',note:'T\'way Airlines'},
+    {id:'i1',date:'2026-07-25',cat:'spot',time:'12:45',title:'成田國際機場',note:'入境手續 ~1 hr',lat:35.7720,lng:140.3929},
+    {id:'i2',date:'2026-07-25',cat:'transport',time:'14:00',title:'成田 Express → 東京',note:'約55分鐘',lat:35.6812,lng:139.7671},
+    {id:'i3',date:'2026-07-25',cat:'hotel',time:'17:00',title:'飯店 Check-in',note:'東京住宿',lat:35.6900,lng:139.7000},
+    // 7/26
+    {id:'i4',date:'2026-07-26',cat:'spot',time:'09:00',title:'淺草寺',note:'雷門、仲見世通',lat:35.7147,lng:139.7967},
+    {id:'i5',date:'2026-07-26',cat:'food',time:'11:30',title:'午餐 – 天ぷら',note:'',lat:35.7100,lng:139.8000},
+    {id:'i6',date:'2026-07-26',cat:'transport',time:'13:30',title:'搭新幹線→仙台',note:'やまびこ',lat:38.2688,lng:140.8721},
+    {id:'i7',date:'2026-07-26',cat:'hotel',time:'18:00',title:'仙台 飯店 Check-in',note:'',lat:38.2688,lng:140.8721},
+    // 8/6 return
+    {id:'f3',date:'2026-08-06',cat:'flight',isFlight:true,flightNo:'MM625',airline:'Peach Aviation',depCode:'NRT',arrCode:'TPE',depTime:'09:00',arrTime:'11:50',dur:170,title:'MM625 成田→桃園',time:'09:00',note:'Peach'},
+  ],
+  expenses:[
+    {id:'e1',date:'2026-07-25',cat:'transport',title:'成田 Express 特急券',amount:3070,note:''},
+    {id:'e2',date:'2026-07-25',cat:'food',title:'晚餐 – 居酒屋',amount:3200,note:'含一杯生啤'},
+    {id:'e3',date:'2026-07-26',cat:'activity',title:'淺草人力車',amount:6000,note:''},
+    {id:'e4',date:'2026-07-26',cat:'food',title:'天婦羅午餐',amount:1800,note:''},
+  ],
+  preExpenses:[
+    {id:'p1',cat:'transport',title:'機票 TW664 + TW251 (去程)',amount:15800,note:'德威航空 桃園→大邱→成田'},
+    {id:'p2',cat:'transport',title:'機票 MM625 (回程)',amount:6800,note:'Peach 成田→桃園'},
+    {id:'p3',cat:'accommodation',title:'東京 Hotel (2晚)',amount:28000,note:'Agoda 7/25-7/26'},
+    {id:'p4',cat:'transport',title:'JR East Pass 東北5日券',amount:20000,note:''},
+  ],
+  todos:[
+    {id:'t1',title:'確認護照效期',done:true,cat:'出發前',date:''},
+    {id:'t2',title:'兌換日幣',done:true,cat:'出發前',date:''},
+    {id:'t3',title:'下載離線地圖 (Maps.me)',done:false,cat:'出發前',date:''},
+    {id:'t4',title:'購買 JR PASS',done:false,cat:'行前準備',date:'2026-07-20'},
+    {id:'t5',title:'預訂弘前城門票',done:false,cat:'景點',date:'2026-07-28'},
+    {id:'t6',title:'充電寶充電',done:false,cat:'打包',date:''},
+    {id:'t7',title:'備份重要文件',done:false,cat:'出發前',date:''},
+  ],
+};
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let S = JSON.parse(localStorage.getItem('jtrip25') || 'null') || JSON.parse(JSON.stringify(DEF));
+if(!S.preExpenses) S.preExpenses = JSON.parse(JSON.stringify(DEF.preExpenses));
+if(!S.expSubTab) S.expSubTab = 'detail';
+if(!S.dayTitles) S.dayTitles = {};
+// Migrate 2025 dates to 2026
+if(!S._y26){
+  const fix=s=>typeof s==='string'?s.replace(/^2025-/,'2026-'):s;
+  if(S.date) S.date=fix(S.date);
+  (S.itiItems||[]).forEach(i=>{ if(i.date) i.date=fix(i.date); });
+  (S.expenses||[]).forEach(e=>{ if(e.date) e.date=fix(e.date); });
+  (S.todos||[]).forEach(t=>{ if(t.date) t.date=fix(t.date); });
+  S._y26=true;
+}
+// ═══════════════════════════════════════════════
+// FIREBASE
+// ═══════════════════════════════════════════════
+const FB_CONFIG = {
+  apiKey:"AIzaSyDDylczuNOVBwomx9I8rTpScUpBovHaMU0",
+  authDomain:"japan-trip-1fbc0.firebaseapp.com",
+  databaseURL:"https://japan-trip-1fbc0-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"japan-trip-1fbc0",
+  storageBucket:"japan-trip-1fbc0.firebasestorage.app",
+  messagingSenderId:"105175014664",
+  appId:"1:105175014664:web:abcdd2138933899f8660bd"
+};
+let db=null, fbUid=null, fbWriting=false;
+function initFirebase(){
+  firebase.initializeApp(FB_CONFIG);
+  db=firebase.database();
+  const savedUid=localStorage.getItem('jtrip_uid');
+  firebase.auth().signInAnonymously().then(cred=>{
+    fbUid=savedUid||cred.user.uid;
+    if(!savedUid) localStorage.setItem('jtrip_uid',fbUid);
+    setSyncStatus('syncing');
+    db.ref('trips/'+fbUid).once('value').then(snap=>{
+      const data=snap.val();
+      if(data){ S=data; localStorage.setItem('jtrip25',JSON.stringify(S)); renderStrip(); renderContent(); }
+      setSyncStatus('ok');
+      // 即時監聽遠端變更（其他裝置寫入）
+      db.ref('trips/'+fbUid).on('value',snap=>{
+        if(fbWriting) return;
+        const data=snap.val();
+        if(data){ S=data; localStorage.setItem('jtrip25',JSON.stringify(S)); renderStrip(); renderContent(); setSyncStatus('ok'); }
+      });
+    });
+  }).catch(()=>setSyncStatus('err'));
+}
+function setSyncStatus(s){
+  const el=document.getElementById('syncDot');
+  if(!el) return;
+  el.title=s==='ok'?'已同步':s==='syncing'?'同步中...':'離線';
+  el.style.background=s==='ok'?'var(--green)':s==='syncing'?'var(--orange)':'var(--red)';
+}
+function getSyncCode(){ return fbUid?fbUid.slice(0,8).toUpperCase():'—' }
+function linkDevice(){
+  const code=document.getElementById('linkCode').value.trim().toLowerCase();
+  if(code.length<8){alert('請輸入完整同步碼');return;}
+  if(!confirm('確定連結？目前裝置資料將與對方同步')) return;
+  localStorage.setItem('jtrip_uid',code);
+  alert('✅ 已連結，重新載入頁面生效');
+  location.reload();
+}
+function save(){
+  localStorage.setItem('jtrip25',JSON.stringify(S));
+  if(db&&fbUid){
+    fbWriting=true;
+    db.ref('trips/'+fbUid).set(S).then(()=>{ fbWriting=false; setSyncStatus('ok'); }).catch(()=>{ fbWriting=false; setSyncStatus('err'); });
+  }
+  setSyncStatus('syncing');
+}
+function uid(p){ return p + Date.now() + Math.random().toString(36).slice(2,5) }
+
+// ═══════════════════════════════════════════════
+// MAP
+// ═══════════════════════════════════════════════
+let map, rLayer, mLayer;
+function initMap(){
+  map = L.map('map',{zoomControl:false,attributionControl:false}).setView([36.5,138.5],6);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
+  rLayer = L.layerGroup().addTo(map);
+  mLayer = L.layerGroup().addTo(map);
+}
+function updateMap(){
+  rLayer.clearLayers(); mLayer.clearLayers();
+  const pts = S.itiItems.filter(i=>i.date===S.date&&i.lat&&i.lng&&!i.isFlight)
+                         .sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  if(!pts.length) return;
+  const coords = pts.map(p=>[p.lat,p.lng]);
+  if(coords.length>1) L.polyline(coords,{color:'#7b6cf6',weight:2.5,dashArray:'8 5',opacity:.75}).addTo(rLayer);
+  pts.forEach((p,i)=>{
+    const isH = p.cat==='hotel';
+    const col = isH ? '#ff6b6b' : '#8b5cf6';
+    const ico = L.divIcon({
+      html:`<div style="background:${col};color:#fff;width:${isH?32:26}px;height:${isH?32:26}px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${isH?15:12}px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);font-weight:700">${isH?'🏨':(i+1)}</div>`,
+      iconSize:[isH?32:26,isH?32:26],iconAnchor:[isH?16:13,isH?16:13],className:''
+    });
+    L.marker([p.lat,p.lng],{icon:ico}).bindPopup(`<b>${p.title}</b>${p.time?'<br>'+p.time:''}`).addTo(mLayer);
+  });
+  coords.length===1 ? map.setView(coords[0],13) : map.fitBounds(coords,{padding:[30,30]});
+}
+
+// ═══════════════════════════════════════════════
+// WEATHER
+// ═══════════════════════════════════════════════
+const wxCache={};
+const WI={0:'☀️',1:'🌤',2:'⛅',3:'☁️',45:'🌫',48:'🌫',51:'🌦',53:'🌦',61:'🌧',63:'🌧',71:'🌨',73:'🌨',80:'🌦',81:'🌧',82:'⛈',95:'⛈',96:'⛈',99:'⛈'};
+const WD={0:'晴天',1:'大致晴',2:'局部多雲',3:'陰天',45:'霧',48:'霧',51:'毛毛雨',53:'小雨',61:'小雨',63:'中雨',71:'小雪',73:'中雪',80:'陣雨',81:'大雨',82:'強降雨',95:'雷陣雨',96:'雷陣雨',99:'大雷雨'};
+function wxIcon(c){return WI[c]||WI[Math.floor(c/10)*10]||'🌡'}
+function wxDesc(c){return WD[c]||WD[Math.floor(c/10)*10]||'未知'}
+async function fetchWx(date){
+  if(wxCache[date]) return;
+  try{
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=38.268&longitude=140.869&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo&start_date=${date}&end_date=${date}`);
+    const d=await r.json();
+    if(d.daily){
+      wxCache[date]={code:d.daily.weathercode[0],max:Math.round(d.daily.temperature_2m_max[0]),min:Math.round(d.daily.temperature_2m_min[0])};
+      if(S.tab==='iti') renderContent();
+    }
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════
+// DATE STRIP
+// ═══════════════════════════════════════════════
+function getDates(){
+  const arr=[]; let d=new Date(T0), e=new Date(T1);
+  while(d<=e){
+    arr.push({iso:d.toISOString().slice(0,10),n:d.getDate(),w:DAYS[d.getDay()],m:d.getMonth()+1});
+    d.setDate(d.getDate()+1);
+  }
+  return arr;
+}
+function renderStrip(){
+  const strip=document.getElementById('dateStrip');
+  const dates=getDates();
+  strip.innerHTML=dates.map(d=>{
+    const has=S.itiItems.some(i=>i.date===d.iso)||S.expenses.some(i=>i.date===d.iso);
+    return`<div class="dc${d.iso===S.date?' active':''}${has?' has-items':''}" onclick="selDate('${d.iso}')">
+      <div class="dn">${d.n}</div>
+      <div class="dl">${d.w}</div>
+    </div>`;
+  }).join('');
+  strip.querySelector('.active')?.scrollIntoView({inline:'center',behavior:'smooth'});
+}
+function selDate(iso){
+  S.date=iso; save();
+  renderStrip(); renderContent();
+  updateMap(); fetchWx(iso);
+}
+
+// ═══════════════════════════════════════════════
+// TAB SWITCH
+// ═══════════════════════════════════════════════
+function switchTab(tab){
+  S.tab=tab; save();
+  document.querySelectorAll('.ni').forEach(e=>e.classList.remove('active'));
+  document.getElementById('ni-'+tab)?.classList.add('active');
+  const panel=document.getElementById('panel');
+  const mapEl=document.getElementById('map');
+  const strip=document.getElementById('dateStrip');
+  if(tab==='iti'){
+    mapEl.classList.remove('hidden'); panel.classList.remove('full');
+    strip.style.display='flex';
+    updateMap();
+  } else if(tab==='exp'){
+    mapEl.classList.add('hidden'); panel.classList.add('full');
+    strip.style.display='none';
+  } else {
+    mapEl.classList.add('hidden'); panel.classList.add('full');
+    strip.style.display='none';
+  }
+  renderContent();
+}
+
+// ═══════════════════════════════════════════════
+// RENDER CONTENT
+// ═══════════════════════════════════════════════
+let pieChart=null;
+function renderContent(){
+  const area=document.getElementById('tabArea');
+  if(S.tab==='iti')       area.innerHTML=renderIti();
+  else if(S.tab==='exp')  area.innerHTML=renderExp();
+  else if(S.tab==='rate') area.innerHTML=renderRate();
+  else if(S.tab==='todo') area.innerHTML=renderTodo();
+
+  if(S.tab==='iti') initItiSort();
+  if(S.tab==='exp'){ initPieChart(); initExpSort(); }
+  if(S.tab==='rate'){ fetchRate(); }
+  if(S.tab==='todo') initTodoSort();
+}
+
+// ═══════════════════════════════════════════════
+// ITINERARY RENDER
+// ═══════════════════════════════════════════════
+function renderIti(){
+  const day=S.itiItems.filter(i=>i.date===S.date).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  const wx=wxCache[S.date];
+  let h='';
+
+  // Departure suggestion — rendered as first ilist item later
+  const firstActivity=day.find(i=>!i.isFlight&&i.cat!=='hotel'&&i.time)||day.find(i=>!i.isFlight&&i.cat!=='hotel');
+  const firstFlight=day.find(i=>i.isFlight&&i.depTime);
+  let depSug='', depSugNote='';
+  if(firstFlight){
+    const [fh,fm]=firstFlight.depTime.split(':').map(Number);
+    let mm=fh*60+fm-150;
+    if(mm<0) mm+=1440;
+    depSug=`${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`;
+    depSugNote=`航班 ${firstFlight.flightNo} ${firstFlight.depTime} 起飛，建議提前 2.5h`;
+  } else if(firstActivity){
+    if(firstActivity.time){
+      const [h1,m1]=firstActivity.time.split(':').map(Number);
+      let mm=h1*60+m1-20; if(mm<0) mm+=1440;
+      depSug=`${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`;
+      depSugNote=`首站「${firstActivity.title}」${firstActivity.time}，建議提前 20 分鐘`;
+    } else {
+      depSug='08:30'; depSugNote=`首站「${firstActivity.title}」尚未設定時間`;
+    }
+  }
+
+  // Day title
+  if(!S.dayTitles) S.dayTitles={};
+  const titleVal=S.dayTitles[S.date]||'';
+  const d0=new Date(S.date);
+  const dateSub=`${d0.getMonth()+1}/${d0.getDate()} 週${DAYS[d0.getDay()]}`;
+  h+=`<div class="day-title-wrap">
+    <div class="day-title" contenteditable="true" spellcheck="false"
+      onfocus="this.parentElement.classList.add('focused')"
+      onblur="this.parentElement.classList.remove('focused');if(!S.dayTitles)S.dayTitles={};S.dayTitles['${S.date}']=this.textContent.trim();save()"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+    >${titleVal}</div>
+    <div class="day-title-sub">${dateSub}</div>
+  </div>`;
+
+  if(wx){
+    h+=`<div class="wx anim">
+      <div class="wx-ico">${wxIcon(wx.code)}</div>
+      <div class="wx-info">
+        <div class="wx-loc">仙台 參考天氣</div>
+        <div class="wx-temp">${wx.max}° / ${wx.min}°</div>
+      </div>
+      <div class="wx-right">${wxDesc(wx.code)}</div>
+    </div>`;
+  }
+
+  const flights=day.filter(i=>i.isFlight);
+  const rest=day.filter(i=>!i.isFlight);
+
+  flights.forEach(f=>{ h+=renderFlight(f); });
+
+  if(rest.length||depSug){
+    h+=`<div class="ilist" id="ilist">`;
+    if(depSug){
+      h+=`<div class="iitem" style="opacity:.65">
+        <div class="itime" style="color:var(--accent);font-weight:700">${depSug}</div>
+        <div class="iico" style="background:rgba(139,92,246,.18);color:var(--accent)">🚶</div>
+        <div class="ibody">
+          <div class="ititle" style="color:var(--accent);font-size:13px">建議出發</div>
+          <div class="isub">${depSugNote}</div>
+        </div>
+      </div>`;
+    }
+    rest.forEach(it=>{ h+=renderItiItem(it); });
+    h+=`</div>`;
+  }
+
+  if(!day.length){
+    h+=`<div class="empty"><div class="ei">📅</div><p>今日尚無行程</p></div>`;
+  }
+  h+=`<button class="add-inline" onclick="openAddIti()">＋ 新增行程</button>`;
+  return h;
+}
+
+function renderFlight(f){
+  const min=f.dur||0;
+  const h=Math.floor(min/60), m=min%60;
+  const dur=min?`${h} hr${m?` ${m} min`:''}`:'-';
+  return`<div class="fcard anim" onclick="editItiItem('${f.id}')">
+    <div class="ftop">
+      <div class="ftime">${f.depTime}</div>
+      <div class="fmid">
+        <div class="fline"><span class="fdot"></span><span class="fdash"></span><span class="fahead">›</span></div>
+      </div>
+      <div class="ftime">${f.arrTime}</div>
+    </div>
+    <div class="fdur">${dur}</div>
+    <div class="fbot">
+      <span class="fcode">${f.depCode}</span>
+      <div class="finfo"><span class="fainame">${f.airline}</span><span style="color:var(--text3)">·</span><span class="fnum">${f.flightNo}</span></div>
+      <span class="fcode">${f.arrCode}</span>
+    </div>
+  </div>`;
+}
+
+function renderItiItem(it){
+  const c=ICAT[it.cat]||ICAT.other;
+  return`<div class="iitem anim" data-id="${it.id}" onclick="editItiItem('${it.id}')">
+    <div class="itime">${it.time||''}</div>
+    <div class="iico" style="background:${c.c}22;color:${c.c}">${c.i}</div>
+    <div class="ibody">
+      <div class="ititle">${it.title}</div>
+      ${it.note?`<div class="isub">${it.note}</div>`:''}
+    </div>
+    <div class="drag-h">⠿</div>
+  </div>`;
+}
+
+function initItiSort(){
+  const el=document.getElementById('ilist');
+  if(!el||!window.Sortable) return;
+  Sortable.create(el,{handle:'.drag-h',animation:150,onEnd(ev){
+    const others=S.itiItems.filter(i=>!(i.date===S.date&&!i.isFlight));
+    const day=S.itiItems.filter(i=>i.date===S.date&&!i.isFlight);
+    const [m]=day.splice(ev.oldIndex,1);
+    day.splice(ev.newIndex,0,m);
+    S.itiItems=[...others,...day];
+    save();
+  }});
+}
+
+// ═══════════════════════════════════════════════
+// EXPENSE RENDER
+// ═══════════════════════════════════════════════
+function renderExp(){
+  const all=S.expenses;
+  const today=new Date().toISOString().split('T')[0];
+  const day=all.filter(e=>e.date===today);
+  const todayT=day.reduce((s,e)=>s+e.amount,0);
+  const tripT=all.reduce((s,e)=>s+e.amount,0);
+  const days=getDates().length;
+  const avg=Math.round(tripT/days);
+
+  // Combined categories: trip + pre-trip for 支出分類
+  const cats={};
+  all.forEach(e=>{ cats[e.cat]=(cats[e.cat]||0)+e.amount; });
+  S.preExpenses.forEach(e=>{ cats[e.cat]=(cats[e.cat]||0)+e.amount; });
+  const catsTotal=Object.values(cats).reduce((s,v)=>s+v,0);
+  const budget=S.budget||200000;
+  const budPct=Math.min(100,Math.round(tripT/budget*100));
+
+  let h=`<div style="padding-top:24px"><div class="dgrid">
+    <div class="scard"><div class="sv" style="color:var(--accent)">¥${todayT.toLocaleString()}</div><div class="sl">今日花費</div></div>
+    <div class="scard"><div class="sv" style="color:var(--accent)">¥${tripT.toLocaleString()}</div><div class="sl">旅程累計</div></div>
+    <div class="scard"><div class="sv" style="color:var(--accent)">¥${avg.toLocaleString()}</div><div class="sl">日均花費</div></div>
+  </div>`;
+
+  // Budget progress
+  h+=`<div class="card" style="padding:14px;margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:6px">
+      <span>預算使用 ${budPct}%</span>
+      <span>¥${budget.toLocaleString()}</span>
+    </div>
+    <div class="prog-wrap"><div class="prog-bar" style="width:${budPct}%;background:${budPct>80?'var(--red)':budPct>60?'var(--orange)':'var(--accent)'}"></div></div>
+  </div>`;
+
+  // Pie chart (含旅費 + 旅程)
+  if(catsTotal>0){
+    const sortedCats=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+    const legendHtml=sortedCats.map(([cat,amt])=>{
+      const c=ECAT[cat]||ECAT.other;
+      const pct=(amt/catsTotal*100).toFixed(1);
+      return`<div class="legend-item"><div class="legend-dot" style="background:${c.c}"></div><span style="font-size:12px;flex:1">${c.i} ${c.l}</span><span class="legend-pct">${pct}%</span><span class="legend-amt">¥${amt.toLocaleString()}</span></div>`;
+    }).join('');
+    h+=`<div class="chart-wrap">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+        <div class="chart-ttl" style="margin:0">支出分類</div>
+        <div style="font-size:10px;color:var(--text3)">含行前旅費 · 合計 ¥${catsTotal.toLocaleString()}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="width:130px;height:130px;flex-shrink:0"><canvas id="pieC"></canvas></div>
+        <div style="flex:1">${legendHtml}</div>
+      </div>
+    </div>`;
+  }
+
+  // Sub-tabs: 支出明細 / 旅費
+  h+=`<div class="sub-tabs">
+    <button class="sub-tab${S.expSubTab==='detail'?' on':''}" onclick="switchExpSub('detail')">支出明細</button>
+    <button class="sub-tab${S.expSubTab==='pretrip'?' on':''}" onclick="switchExpSub('pretrip')">旅費</button>
+  </div>`;
+
+  if(S.expSubTab==='pretrip'){
+    const preTotal=S.preExpenses.reduce((s,e)=>s+e.amount,0);
+    h+=`<div class="pretrip-summary">
+      <div style="font-size:30px">🧳</div>
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--text2);font-weight:600">行前旅費總額</div>
+        <div style="font-size:22px;font-weight:800;line-height:1.1">¥${preTotal.toLocaleString()}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">≈ TWD $${Math.round(preTotal*rate).toLocaleString()}</div>
+      </div>
+    </div>`;
+    h+=`<div class="sh"><span class="sh-title">旅費明細（機酒、票券）</span></div>`;
+    if(!S.preExpenses.length){
+      h+=`<div class="empty"><div class="ei">✈️</div><p>尚無旅費，點下方按鈕新增</p></div>`;
+    } else {
+      h+=`<div id="preList">`;
+      S.preExpenses.forEach(e=>{ h+=renderPreExpItem(e); });
+      h+=`</div>`;
+    }
+    h+=`<button class="add-inline" onclick="openAddPreExp()">＋ 新增旅費</button></div>`;
+    return h;
+  }
+
+  // 支出明細 — 按日期分群，最新在前
+  if(!all.length){
+    h+=`<div class="empty"><div class="ei">💴</div><p>尚無支出記錄</p></div>`;
+  } else {
+    const grp={};
+    all.forEach(e=>{ (grp[e.date]=grp[e.date]||[]).push(e); });
+    Object.keys(grp).sort((a,b)=>b.localeCompare(a)).forEach(date=>{
+      const d=new Date(date);
+      const w=DAYS[d.getDay()], m=d.getMonth()+1, n=d.getDate();
+      const dt=grp[date].reduce((s,e)=>s+e.amount,0);
+      const isToday=(date===today);
+      h+=`<div class="sh" style="margin-top:6px">
+        <span class="sh-title">${m}/${n} 週${w}${isToday?' <span style="font-size:9px;background:var(--accent);color:#fff;padding:2px 6px;border-radius:8px;vertical-align:middle;margin-left:4px">今日</span>':''}</span>
+        <span style="font-size:11px;color:var(--accent);font-weight:700">¥${dt.toLocaleString()}</span>
+      </div>
+      <div class="elist-g" data-date="${date}">`;
+      grp[date].forEach(e=>{ h+=renderExpItem(e); });
+      h+=`</div>`;
+    });
+  }
+  return h+'</div>';
+}
+
+function renderPreExpItem(e){
+  const c=ECAT[e.cat]||ECAT.other;
+  return`<div class="eitem anim" data-id="${e.id}" onclick="editPreExp('${e.id}')">
+    <div class="eico" style="background:${c.c}22">${c.i}</div>
+    <div class="ebody"><div class="etitle">${e.title}</div><div class="edate">${c.l}${e.note?' · '+e.note:''}</div></div>
+    <div class="eamt">¥${e.amount.toLocaleString()}</div>
+  </div>`;
+}
+
+function renderExpItem(e){
+  const c=ECAT[e.cat]||ECAT.other;
+  return`<div class="eitem anim" data-id="${e.id}" onclick="editExp('${e.id}')">
+    <div class="eico" style="background:${c.c}22">${c.i}</div>
+    <div class="ebody"><div class="etitle">${e.title}</div><div class="edate">${c.l}</div></div>
+    <div class="eamt">¥${e.amount.toLocaleString()}</div>
+  </div>`;
+}
+
+function initPieChart(){
+  const cvs=document.getElementById('pieC');
+  if(!cvs||!window.Chart) return;
+  if(pieChart){ pieChart.destroy(); pieChart=null; }
+  const cats={};
+  S.expenses.forEach(e=>{ cats[e.cat]=(cats[e.cat]||0)+e.amount; });
+  const keys=Object.keys(cats);
+  pieChart=new Chart(cvs,{
+    type:'doughnut',
+    data:{labels:keys.map(k=>(ECAT[k]||ECAT.other).l),datasets:[{data:Object.values(cats),backgroundColor:keys.map(k=>(ECAT[k]||ECAT.other).c),borderWidth:0}]},
+    options:{responsive:true,plugins:{legend:{display:false}},cutout:'65%'}
+  });
+}
+
+function initExpSort(){
+  document.querySelectorAll('#elist,#preList,.elist-g').forEach(el=>{
+    if(window.Sortable) Sortable.create(el,{animation:150});
+  });
+}
+
+// ═══════════════════════════════════════════════
+// EXCHANGE RATE
+// ═══════════════════════════════════════════════
+let rate=4.65; // TWD per JPY
+async function fetchRate(){
+  try{
+    const r=await fetch('https://open.er-api.com/v6/latest/JPY');
+    const d=await r.json();
+    if(d.rates?.TWD){ rate=d.rates.TWD; updateRateUI(); }
+  }catch(e){ updateRateUI(); }
+}
+function updateRateUI(){
+  const r1=document.getElementById('rDisp1');
+  const r2=document.getElementById('rDisp2');
+  if(r1) r1.textContent=`1 JPY ≈ ${rate.toFixed(4)} TWD`;
+  if(r2) r2.textContent=`1 TWD ≈ ${(1/rate).toFixed(1)} JPY`;
+  cvtJpy();
+}
+function cvtJpy(){
+  const j=parseFloat(document.getElementById('jIn')?.value)||0;
+  const ti=document.getElementById('tIn');
+  if(ti&&j>0) ti.value=Math.round(j*rate);
+  else if(ti) ti.value='';
+}
+function cvtTwd(){
+  const t=parseFloat(document.getElementById('tIn')?.value)||0;
+  const ji=document.getElementById('jIn');
+  if(ji&&t>0) ji.value=Math.round(t/rate);
+  else if(ji) ji.value='';
+}
+function renderRate(){
+  return`<div style="padding:24px 0 0">
+    <div class="rcard">
+      <div style="text-align:center">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:4px">即時匯率</div>
+        <div style="font-size:22px;font-weight:800;margin-bottom:2px" id="rDisp1">載入中...</div>
+        <div style="font-size:13px;color:var(--text2)" id="rDisp2"></div>
+      </div>
+      <div style="margin-top:20px">
+        <div class="fg">
+          <label class="fl">日幣 JPY</label>
+          <div class="rinput-wrap">
+            <span class="rcurr">¥</span>
+            <input type="number" class="fi" id="jIn" placeholder="0" oninput="cvtJpy()" style="font-size:22px;font-weight:800">
+          </div>
+        </div>
+        <div style="text-align:center;font-size:22px;color:var(--text3);margin:8px 0;cursor:pointer" onclick="let j=document.getElementById('jIn').value;document.getElementById('jIn').value=document.getElementById('tIn').value;document.getElementById('tIn').value=j">⇅</div>
+        <div class="fg">
+          <label class="fl">台幣 TWD</label>
+          <div class="rinput-wrap">
+            <span class="rcurr">$</span>
+            <input type="number" class="fi" id="tIn" placeholder="0" oninput="cvtTwd()" style="font-size:22px;font-weight:800">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="rcard">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px">快速換算</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${[500,1000,3000,5000,10000,50000].map(j=>`
+          <div style="background:var(--bg);border-radius:10px;padding:12px;text-align:center;cursor:pointer" onclick="document.getElementById('jIn').value=${j};cvtJpy()">
+            <div style="font-size:14px;font-weight:700">¥${j.toLocaleString()}</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:3px">≈ $${Math.round(j*rate).toLocaleString()}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div style="text-align:center;font-size:10px;color:var(--text3);padding:8px">匯率來源：open.er-api.com · 每日更新 · 僅供參考</div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// TODO RENDER
+// ═══════════════════════════════════════════════
+function renderTodo(){
+  const cats=[...new Set(S.todos.map(t=>t.cat).filter(Boolean))];
+  const uncat=S.todos.filter(t=>!t.cat);
+  let h='<div style="padding-top:24px">';
+
+  const pend=S.todos.filter(t=>!t.done).length;
+  const done=S.todos.filter(t=>t.done).length;
+  h+=`<div class="card" style="padding:14px;margin-bottom:10px;display:flex;gap:20px;justify-content:center;text-align:center">
+    <div><div style="font-size:22px;font-weight:800;color:var(--accent)">${pend}</div><div style="font-size:10px;color:var(--text2)">待辦</div></div>
+    <div style="width:1px;background:var(--border)"></div>
+    <div><div style="font-size:22px;font-weight:800;color:var(--green)">${done}</div><div style="font-size:10px;color:var(--text2)">完成</div></div>
+    <div style="width:1px;background:var(--border)"></div>
+    <div><div style="font-size:22px;font-weight:800">${S.todos.length}</div><div style="font-size:10px;color:var(--text2)">全部</div></div>
+  </div>`;
+
+  cats.forEach(cat=>{
+    const items=S.todos.filter(t=>t.cat===cat);
+    const dc=items.filter(t=>t.done).length;
+    h+=`<div class="sh"><span class="sh-title">${cat}</span>
+      <span style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:10px;color:var(--text3)">${dc}/${items.length}</span>
+        <button class="sh-plus" onclick="openAddTodo({cat:'${cat.replace(/'/g,"\\'")}'})" title="新增到 ${cat}">＋</button>
+      </span>
+    </div>
+    <div class="todo-group" data-cat="${cat}">`;
+    items.forEach(t=>{ h+=renderTodoItem(t); });
+    h+=`</div>`;
+  });
+  if(uncat.length){
+    h+=`<div class="sh"><span class="sh-title">其他</span>
+      <button class="sh-plus" onclick="openAddTodo()" title="新增">＋</button>
+    </div><div class="todo-group" data-cat="">`;
+    uncat.forEach(t=>{ h+=renderTodoItem(t); });
+    h+=`</div>`;
+  }
+  if(!S.todos.length){
+    h+=`<div class="empty"><div class="ei">✅</div><p>尚無待辦事項</p></div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+function renderTodoItem(t){
+  return`<div class="titem anim" data-id="${t.id}">
+    <div class="tchk${t.done?' done':''}" onclick="toggleTodo('${t.id}')">${t.done?'✓':''}</div>
+    <div class="ttxt${t.done?' done':''}" onclick="editTodo('${t.id}')" style="flex:1">
+      ${t.title}
+      ${t.date?`<div class="tdate">📅 ${t.date}</div>`:''}
+    </div>
+    <div class="drag-h">⠿</div>
+  </div>`;
+}
+function initSwipeDelete(){
+  document.querySelectorAll('.swipe-item').forEach(el=>{
+    let sx=0;
+    el.addEventListener('touchstart',e=>{ sx=e.touches[0].clientX; });
+    el.addEventListener('touchend',e=>{
+      const ex=e.changedTouches[0].clientX;
+      const delta=sx-ex;
+      if(delta>40) el.classList.add('swiped');
+      else if(delta<-20) el.classList.remove('swiped');
+    });
+  });
+}
+
+function initTodoSort(){
+  document.querySelectorAll('.todo-group').forEach(el=>{
+    if(!window.Sortable) return;
+    Sortable.create(el,{handle:'.drag-h',animation:150,group:'todos',onEnd(){
+      const ids=[...document.querySelectorAll('.titem[data-id]')].map(e=>e.dataset.id);
+      S.todos=ids.map(id=>S.todos.find(t=>t.id===id)).filter(Boolean);
+      save();
+    }});
+  });
+}
+function toggleTodo(id){
+  const t=S.todos.find(t=>t.id===id);
+  if(t){ t.done=!t.done; save(); renderContent(); }
+}
+
+// ═══════════════════════════════════════════════
+// BOTTOM SHEET
+// ═══════════════════════════════════════════════
+function openInlineForm(title, html){
+  const area=document.getElementById('tabArea');
+  area.innerHTML=`<div style="padding-bottom:calc(var(--nav-h)+20px)">
+    <div style="display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--border);margin-bottom:4px">
+      <button onclick="renderContent()" style="background:none;border:none;color:var(--accent);font-size:22px;font-weight:300;cursor:pointer;line-height:1;padding:0">‹</button>
+      <div style="font-size:16px;font-weight:700">${title}</div>
+    </div>
+    <div style="padding:10px 14px">${html}</div>
+  </div>`;
+}
+function openSheet(title, html){
+  document.getElementById('bsTitle').textContent=title;
+  document.getElementById('bsBody').innerHTML=html;
+  document.getElementById('overlay').classList.add('on');
+  document.getElementById('bsheet').classList.add('on');
+}
+function closeSheet(){
+  document.getElementById('overlay').classList.remove('on');
+  document.getElementById('bsheet').classList.remove('on');
+}
+
+// ═══════════════════════════════════════════════
+// FAB
+// ═══════════════════════════════════════════════
+function handlePlus(){ openReceipt(); }
+function switchExpSub(sub){
+  S.expSubTab=sub; save();
+  renderContent();
+}
+
+// ═══════════════════════════════════════════════
+// ITINERARY CRUD
+// ═══════════════════════════════════════════════
+function chipHtml(cats, selectedKey, inputId, onchange=''){
+  return Object.entries(cats).map(([k,v])=>
+    `<div class="chip${selectedKey===k?' on':''}" onclick="selChip(this,'${inputId}');${onchange}" data-val="${k}">${v.i} ${v.l}</div>`
+  ).join('');
+}
+function selChip(el, inputId){
+  el.closest('.chips').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById(inputId).value=el.dataset.val;
+}
+
+function openAddIti(pre={}){
+  const isFlight=pre.isFlight||pre.cat==='flight';
+  const html=`
+    <div class="fg">
+      <label class="fl">分類</label>
+      <div class="chips" id="iCatChips">${chipHtml(ICAT, pre.cat||'spot','iCat',"toggleFlightFields()")}</div>
+      <input type="hidden" id="iCat" value="${pre.cat||'spot'}">
+    </div>
+    <div id="flightF" style="${isFlight?'':'display:none'}">
+      <div class="frow">
+        <div class="fg"><label class="fl">出發地 IATA</label><input class="fi" id="depC" placeholder="TPE" value="${pre.depCode||''}"></div>
+        <div class="fg"><label class="fl">目的地 IATA</label><input class="fi" id="arrC" placeholder="NRT" value="${pre.arrCode||''}"></div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label class="fl">起飛</label><input class="fi" id="dTime" type="time" value="${pre.depTime||''}"></div>
+        <div class="fg"><label class="fl">落地</label><input class="fi" id="aTime" type="time" value="${pre.arrTime||''}"></div>
+      </div>
+      <div class="fg"><label class="fl">航班編號</label><input class="fi" id="fNo" placeholder="TW251" value="${pre.flightNo||''}"></div>
+      <div class="fg"><label class="fl">航空公司</label><input class="fi" id="fAir" placeholder="德威航空" value="${pre.airline||''}"></div>
+    </div>
+    <div id="normalF" style="${isFlight?'display:none':''}">
+      <div class="fg"><label class="fl">名稱</label><input class="fi" id="iTitle" placeholder="景點名稱" value="${pre.title||''}"></div>
+      <div class="frow">
+        <div class="fg"><label class="fl">時間</label><input class="fi" id="iTime" type="time" value="${pre.time||''}"></div>
+        <div class="fg"><label class="fl">日期</label><input class="fi" id="iDate" type="date" value="${pre.date||S.date}" min="${T0}" max="${T1}"></div>
+      </div>
+      <div class="fg"><label class="fl">備註</label><input class="fi" id="iNote" placeholder="..." value="${pre.note||''}"></div>
+      <div class="fg">
+        <label class="fl">Google Maps 連結 <span style="color:var(--text3);font-weight:400">(貼上自動解析座標)</span></label>
+        <input class="fi" id="iMapUrl" placeholder="https://www.google.com/maps/... 或 35.68,139.69" oninput="parseMapUrl()">
+        <div id="iMapStatus" style="font-size:11px;margin-top:6px;color:var(--text3)">${pre.lat&&pre.lng?`✓ 已設定座標：${pre.lat.toFixed(4)}, ${pre.lng.toFixed(4)}`:'未設定座標'}</div>
+        <input type="hidden" id="iLat" value="${pre.lat||''}">
+        <input type="hidden" id="iLng" value="${pre.lng||''}">
+      </div>
+    </div>
+    <div style="margin-top:6px">
+      <button class="btn btn-p" onclick="saveIti('${pre.id||''}')">${pre.id?'儲存變更':'新增行程'}</button>
+      ${pre.id?`<button class="btn btn-d" onclick="delItiItem('${pre.id}');closeSheet()">刪除此行程</button>`:''}
+    </div>`;
+  openSheet(pre.id?'編輯行程':'新增行程', html);
+}
+
+function toggleFlightFields(){
+  const cat=document.getElementById('iCat').value;
+  document.getElementById('flightF').style.display=cat==='flight'?'block':'none';
+  document.getElementById('normalF').style.display=cat==='flight'?'none':'block';
+}
+
+function saveIti(eid){
+  const cat=document.getElementById('iCat').value;
+  const isFlight=cat==='flight';
+  let item;
+  if(isFlight){
+    const fNo=document.getElementById('fNo').value||'';
+    const dC=document.getElementById('depC').value.toUpperCase()||'';
+    const aC=document.getElementById('arrC').value.toUpperCase()||'';
+    const dT=document.getElementById('dTime').value||'';
+    const aT=document.getElementById('aTime').value||'';
+    const air=document.getElementById('fAir').value||'';
+    if(!fNo){alert('請填寫航班編號');return;}
+    let dur=0;
+    if(dT&&aT){
+      const [dh,dm]=dT.split(':').map(Number);
+      const [ah,am]=aT.split(':').map(Number);
+      dur=(ah*60+am)-(dh*60+dm);
+      if(dur<0) dur+=24*60;
+    }
+    item={id:eid||uid('f'),date:S.date,cat:'flight',isFlight:true,flightNo:fNo,airline:air,depCode:dC,arrCode:aC,depTime:dT,arrTime:aT,dur,title:`${fNo} ${dC}→${aC}`,time:dT,note:air};
+  } else {
+    const title=document.getElementById('iTitle').value;
+    if(!title){alert('請填寫名稱');return;}
+    const lat=parseFloat(document.getElementById('iLat').value);
+    const lng=parseFloat(document.getElementById('iLng').value);
+    item={id:eid||uid('i'),date:document.getElementById('iDate').value,time:document.getElementById('iTime').value,title,cat,note:document.getElementById('iNote').value,lat:isNaN(lat)?undefined:lat,lng:isNaN(lng)?undefined:lng};
+  }
+  if(eid){const idx=S.itiItems.findIndex(i=>i.id===eid);if(idx>=0)S.itiItems[idx]=item;}
+  else S.itiItems.push(item);
+  save(); closeSheet(); renderStrip(); renderContent(); updateMap();
+}
+
+function parseMapUrl(){
+  const url=document.getElementById('iMapUrl').value.trim();
+  const status=document.getElementById('iMapStatus');
+  const latEl=document.getElementById('iLat');
+  const lngEl=document.getElementById('iLng');
+  if(!url){ status.textContent='未設定座標'; status.style.color='var(--text3)'; return; }
+  let m;
+  // Pattern 1: @lat,lng (Google Maps standard URL)
+  if((m=url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/))){}
+  // Pattern 2: !3dlat!4dlng (place details)
+  else if((m=url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/))){}
+  // Pattern 3: ?q=lat,lng or &ll=lat,lng or center=lat,lng
+  else if((m=url.match(/[?&](?:q|ll|center|destination)=(-?\d+\.\d+),(-?\d+\.\d+)/))){}
+  // Pattern 4: plain "lat,lng" or "lat, lng"
+  else if((m=url.match(/^(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)$/))){}
+  if(m){
+    const lat=parseFloat(m[1]), lng=parseFloat(m[2]);
+    latEl.value=lat; lngEl.value=lng;
+    status.textContent=`✓ 已解析座標：${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    status.style.color='var(--green)';
+  } else if(url.includes('goo.gl')||url.includes('maps.app.goo.gl')){
+    status.innerHTML='⚠ 短網址無法直接解析 / <a href="https://www.expandurl.com/" target="_blank" style="color:var(--accent);text-decoration:underline">展開網址</a> 或在 Google Maps 複製完整網址（含 @lat,lng）';
+    status.style.color='var(--orange)';
+    latEl.value=''; lngEl.value='';
+  } else {
+    status.textContent='✗ 無法解析，請貼上完整 Google Maps 連結或 "緯度,經度"';
+    status.style.color='var(--red)';
+    latEl.value=''; lngEl.value='';
+  }
+}
+
+function editItiItem(id){ const it=S.itiItems.find(i=>i.id===id); if(it) openAddIti(it); }
+function delItiItem(id){
+  if(!confirm('確定刪除?')) return;
+  S.itiItems=S.itiItems.filter(i=>i.id!==id);
+  save(); renderStrip(); renderContent(); updateMap();
+}
+
+// ═══════════════════════════════════════════════
+// EXPENSE CRUD
+// ═══════════════════════════════════════════════
+function openAddExp(pre={}){
+  const html=`
+    <div class="fg">
+      <label class="fl">分類</label>
+      <div class="chips" id="eCatChips">${chipHtml(ECAT, pre.cat||'food','eCat')}</div>
+      <input type="hidden" id="eCat" value="${pre.cat||'food'}">
+    </div>
+    <div class="fg"><label class="fl">項目名稱</label><input class="fi" id="eTitle" placeholder="拉麵、電車" value="${pre.title||''}"></div>
+    <div class="frow">
+      <div class="fg"><label class="fl">金額 (JPY ¥)</label><input class="fi" id="eAmt" type="number" placeholder="0" value="${pre.amount||''}" oninput="updateTWD()"></div>
+      <div class="fg"><label class="fl">日期</label><input class="fi" id="eDate" type="date" value="${pre.date||S.date}" min="${T0}" max="${T1}"></div>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px" id="twdPreview"></div>
+    <div class="fg"><label class="fl">備註</label><input class="fi" id="eNote" placeholder="..." value="${pre.note||''}"></div>
+    <button class="btn btn-p" onclick="saveExp('${pre.id||''}')">${pre.id?'儲存':'新增支出'}</button>
+    ${pre.id?`<button class="btn btn-d" onclick="delExp('${pre.id}')">刪除</button>`:''}`;
+  openInlineForm(pre.id?'編輯支出':'新增支出', html);
+  updateTWD();
+}
+function updateTWD(){
+  const a=parseFloat(document.getElementById('eAmt')?.value)||0;
+  const p=document.getElementById('twdPreview');
+  if(p) p.textContent=a>0?`≈ TWD $${Math.round(a*rate).toLocaleString()}`:'';
+}
+function saveExp(eid){
+  const title=document.getElementById('eTitle').value;
+  if(!title){alert('請填寫名稱');return;}
+  const item={id:eid||uid('e'),date:document.getElementById('eDate').value,cat:document.getElementById('eCat').value,title,amount:parseInt(document.getElementById('eAmt').value)||0,note:document.getElementById('eNote').value};
+  if(eid){const idx=S.expenses.findIndex(e=>e.id===eid);if(idx>=0)S.expenses[idx]=item;}
+  else S.expenses.push(item);
+  save(); closeSheet(); renderStrip(); renderContent();
+}
+function editExp(id){ const e=S.expenses.find(e=>e.id===id); if(e) openAddExp(e); }
+function delExp(id){ S.expenses=S.expenses.filter(e=>e.id!==id); save(); renderStrip(); renderContent(); }
+
+// ═══════════════════════════════════════════════
+// PRE-TRIP EXPENSE CRUD (旅費)
+// ═══════════════════════════════════════════════
+function openAddPreExp(pre={}){
+  const html=`
+    <div class="fg">
+      <label class="fl">分類</label>
+      <div class="chips" id="peCatChips">${chipHtml(ECAT, pre.cat||'transport','peCat')}</div>
+      <input type="hidden" id="peCat" value="${pre.cat||'transport'}">
+    </div>
+    <div class="fg"><label class="fl">項目名稱</label><input class="fi" id="peTitle" placeholder="機票、飯店、票券..." value="${pre.title||''}"></div>
+    <div class="fg"><label class="fl">金額 (JPY ¥)</label><input class="fi" id="peAmt" type="number" placeholder="0" value="${pre.amount||''}" oninput="updatePreTWD()"></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px" id="preTwdPreview"></div>
+    <div class="fg"><label class="fl">備註</label><input class="fi" id="peNote" placeholder="訂購平台、訂單編號..." value="${pre.note||''}"></div>
+    <button class="btn btn-p" onclick="savePreExp('${pre.id||''}')">${pre.id?'儲存':'新增旅費'}</button>
+    ${pre.id?`<button class="btn btn-d" onclick="delPreExp('${pre.id}')">刪除</button>`:''}`;
+  openInlineForm(pre.id?'編輯旅費':'新增旅費', html);
+  updatePreTWD();
+}
+function updatePreTWD(){
+  const a=parseFloat(document.getElementById('peAmt')?.value)||0;
+  const p=document.getElementById('preTwdPreview');
+  if(p) p.textContent=a>0?`≈ TWD $${Math.round(a*rate).toLocaleString()}`:'';
+}
+function savePreExp(eid){
+  const title=document.getElementById('peTitle').value;
+  if(!title){alert('請填寫名稱');return;}
+  const item={id:eid||uid('p'),cat:document.getElementById('peCat').value,title,amount:parseInt(document.getElementById('peAmt').value)||0,note:document.getElementById('peNote').value};
+  if(eid){const idx=S.preExpenses.findIndex(e=>e.id===eid);if(idx>=0)S.preExpenses[idx]=item;}
+  else S.preExpenses.push(item);
+  save(); closeSheet(); renderContent();
+}
+function editPreExp(id){ const e=S.preExpenses.find(e=>e.id===id); if(e) openAddPreExp(e); }
+function delPreExp(id){ S.preExpenses=S.preExpenses.filter(e=>e.id!==id); save(); renderContent(); }
+
+// ═══════════════════════════════════════════════
+// RECEIPT SCANNER
+// ═══════════════════════════════════════════════
+function openReceipt(){
+  const html=`
+    <label class="rec-upload" for="rcFile">
+      <div style="font-size:38px;margin-bottom:10px">📷</div>
+      <div style="font-size:14px;font-weight:700">拍攝或上傳日文收據</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:6px">AI 自動辨識店名、金額、品項</div>
+      <input type="file" id="rcFile" accept="image/*" capture="environment" style="display:none" onchange="processReceipt(this)">
+    </label>
+    <div class="fg">
+      <label class="fl">Claude API Key（AI辨識）</label>
+      <input class="fi" id="rcKey" type="password" placeholder="sk-ant-api..." value="${S.apiKey||''}">
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">Key 不會上傳，僅存於本機</div>
+    </div>
+    <div id="rcPreview" style="display:none;margin-bottom:12px">
+      <img id="rcImg" style="width:100%;border-radius:10px;max-height:180px;object-fit:contain;background:#000">
+      <div id="rcStatus" style="margin-top:8px;font-size:12px;text-align:center"></div>
+    </div>
+    <div class="fg"><label class="fl">店名</label><input class="fi" id="rcStore" placeholder="自動填入"></div>
+    <div class="frow">
+      <div class="fg"><label class="fl">金額 (JPY)</label><input class="fi" id="rcAmt" type="number" placeholder="0"></div>
+      <div class="fg"><label class="fl">分類</label><select class="fi" id="rcCat">${Object.entries(ECAT).map(([k,v])=>`<option value="${k}">${v.i} ${v.l}</option>`).join('')}</select></div>
+    </div>
+    <div class="fg"><label class="fl">品項備註</label><input class="fi" id="rcItems" placeholder="自動填入"></div>
+    <button class="btn btn-p" onclick="saveReceipt()">記錄支出</button>`;
+  openSheet('掃描收據', html);
+}
+
+async function processReceipt(input){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    document.getElementById('rcImg').src=e.target.result;
+    document.getElementById('rcPreview').style.display='block';
+    const key=document.getElementById('rcKey').value||S.apiKey;
+    if(key){ S.apiKey=key; save(); }
+    if(!key){
+      setRcStatus('請輸入 Claude API Key 以啟用 AI 辨識，或手動填寫下方欄位','#f0a030');
+      return;
+    }
+    setRcStatus('🤖 AI 辨識中...','#7b6cf6');
+    try{
+      const b64=e.target.result.split(',')[1];
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:400,messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:file.type,data:b64}},
+          {type:'text',text:'辨識這張日本收據。JSON格式回傳：{"store":"店名(繁體中文)","amount":數字,"items":"品項(繁體中文,逗號分隔)","tax":"內稅/外稅/免稅","category":"food/transport/accommodation/shopping/activity/other"}。只回傳JSON。'}
+        ]}]})
+      });
+      const data=await res.json();
+      if(data.error) throw new Error(data.error.message);
+      const txt=data.content[0].text.replace(/```json|```/g,'').trim();
+      const r=JSON.parse(txt);
+      document.getElementById('rcStore').value=r.store||'';
+      document.getElementById('rcAmt').value=r.amount||'';
+      document.getElementById('rcCat').value=r.category||'food';
+      document.getElementById('rcItems').value=`${r.items||''}${r.tax?' ('+r.tax+')':''}`;
+      setRcStatus('✓ AI 辨識完成，請確認資訊','#4ccea0');
+    }catch(err){
+      setRcStatus(`辨識失敗：${err.message}，請手動填寫`,'#e05555');
+    }
+  };
+  reader.readAsDataURL(file);
+}
+function setRcStatus(msg, col){
+  const el=document.getElementById('rcStatus');
+  if(el){el.textContent=msg;el.style.color=col;}
+}
+function saveReceipt(){
+  const item={id:uid('e'),date:S.date,cat:document.getElementById('rcCat').value,title:document.getElementById('rcStore').value||'收據',amount:parseInt(document.getElementById('rcAmt').value)||0,note:document.getElementById('rcItems').value};
+  S.expenses.push(item);
+  save(); closeSheet(); renderStrip(); renderContent();
+}
+
+// ═══════════════════════════════════════════════
+// TODO CRUD
+// ═══════════════════════════════════════════════
+function openAddTodo(pre={}){
+  const existCats=[...new Set(S.todos.map(t=>t.cat).filter(Boolean))];
+  const html=`
+    <div class="fg"><label class="fl">待辦事項</label><input class="fi" id="tTitle" placeholder="填寫待辦..." value="${pre.title||''}"></div>
+    <div class="frow">
+      <div class="fg">
+        <label class="fl">分類</label>
+        <input class="fi" id="tCat" list="tCatList" placeholder="出發前、打包..." value="${pre.cat||''}">
+        <datalist id="tCatList">
+          ${existCats.map(c=>`<option value="${c}">`).join('')}
+          <option value="出發前"><option value="打包"><option value="景點"><option value="行前準備"><option value="購物清單">
+        </datalist>
+      </div>
+      <div class="fg"><label class="fl">截止日期</label><input class="fi" id="tDate" type="date" value="${pre.date||''}"></div>
+    </div>
+    <button class="btn btn-p" onclick="saveTodo('${pre.id||''}')">${pre.id?'儲存':'新增'}</button>
+    ${pre.id?`<button class="btn btn-d" onclick="delTodo('${pre.id}')">刪除</button>`:''}`;
+  openInlineForm(pre.id?'編輯待辦':'新增待辦', html);
+  setTimeout(()=>document.getElementById('tTitle')?.focus(),100);
+}
+function saveTodo(eid){
+  const title=document.getElementById('tTitle').value;
+  if(!title){alert('請填寫待辦內容');return;}
+  const item={id:eid||uid('t'),title,cat:document.getElementById('tCat').value,date:document.getElementById('tDate').value,done:eid?(S.todos.find(t=>t.id===eid)?.done||false):false};
+  if(eid){const idx=S.todos.findIndex(t=>t.id===eid);if(idx>=0)S.todos[idx]=item;}
+  else S.todos.push(item);
+  save(); closeSheet(); renderContent();
+}
+function editTodo(id){ const t=S.todos.find(t=>t.id===id); if(t) openAddTodo(t); }
+function delTodo(id){ S.todos=S.todos.filter(t=>t.id!==id); save(); renderContent(); }
+
+// ═══════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════
+function openSettings(){
+  const html=`
+    <div class="fg"><label class="fl">Claude API Key（收據 AI 辨識）</label><input class="fi" id="setKey" type="password" placeholder="sk-ant-api..." value="${S.apiKey||''}"><div style="font-size:10px;color:var(--text3);margin-top:4px">用於收據掃描 AI 辨識功能，Key 僅存於本機瀏覽器</div></div>
+    <div class="fg"><label class="fl">旅費預算 (JPY)</label><input class="fi" id="setBudget" type="number" value="${S.budget||200000}"></div>
+    <button class="btn btn-p" onclick="saveSettings()">儲存設定</button>
+    <div style="height:1px;background:var(--border);margin:16px 0"></div>
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">資料備份</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="btn" style="flex:1;background:rgba(139,92,246,.12);color:var(--accent2);border:1.5px solid rgba(139,92,246,.3)" onclick="exportData()">📤 匯出 JSON</button>
+      <button class="btn" style="flex:1;background:rgba(139,92,246,.12);color:var(--accent2);border:1.5px solid rgba(139,92,246,.3)" onclick="document.getElementById('importFile').click()">📥 匯入 JSON</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)">
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-bottom:16px">匯出後傳送到其他裝置，再匯入即可同步資料</div>
+    <div style="height:1px;background:var(--border);margin-bottom:16px"></div>
+    <button class="btn" style="background:rgba(224,85,85,.12);color:var(--red);border:1.5px solid var(--red)" onclick="if(confirm('確定要重置所有資料？此操作無法復原'))resetAll()">🗑 重置所有資料</button>
+    <div style="height:1px;background:var(--border);margin-bottom:16px"></div>
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">跨裝置同步</div>
+    <div style="background:var(--card2);border-radius:var(--rs);padding:12px;margin-bottom:10px">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:4px">此裝置的同步碼</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="font-size:20px;font-weight:800;letter-spacing:3px;color:var(--accent2)" id="dispSyncCode">${getSyncCode()}</div>
+        <button onclick="navigator.clipboard.writeText(fbUid||'').then(()=>alert('✅ 已複製完整同步碼'))" style="background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer">複製</button>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">輸入其他裝置的完整同步碼</label>
+      <div style="display:flex;gap:8px">
+        <input class="fi" id="linkCode" placeholder="貼上同步碼..." style="flex:1">
+        <button onclick="linkDevice()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:0 14px;font-size:13px;font-weight:600;cursor:pointer">連結</button>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">連結後兩台裝置共用同一份資料，即時同步</div>
+    </div>
+    <div style="margin-top:16px;font-size:11px;color:var(--text3);text-align:center;line-height:1.6">
+      旅程：7/25 (六) – 8/6 (三) · 13天12夜<br>
+      資料同步至 Firebase 雲端
+    </div>`;
+  openSheet('設定', html);
+}
+function saveSettings(){
+  S.apiKey=document.getElementById('setKey').value;
+  S.budget=parseInt(document.getElementById('setBudget').value)||200000;
+  save(); closeSheet(); renderContent();
+}
+function resetAll(){
+  localStorage.removeItem('jtrip25');
+  if(db&&fbUid) db.ref('trips/'+fbUid).remove();
+  S=JSON.parse(JSON.stringify(DEF));
+  closeSheet(); renderStrip(); renderContent(); updateMap();
+}
+function exportData(){
+  const data=JSON.stringify(S,null,2);
+  const blob=new Blob([data],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='japan-trip-backup.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+function importData(input){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(!data.itiItems||!data.expenses) throw new Error('格式不符');
+      if(!confirm('確定要匯入？目前資料將被覆蓋')) return;
+      S=data; save();
+      closeSheet(); renderStrip(); renderContent(); updateMap();
+      alert('✅ 匯入成功');
+    }catch(err){
+      alert('❌ 匯入失敗：檔案格式不正確');
+    }
+    input.value='';
+  };
+  reader.readAsText(file);
+}
+
+// ═══════════════════════════════════════════════
+// PANEL DRAG
+// ═══════════════════════════════════════════════
+function initPanelDrag(){
+  const handle=document.getElementById('panelHandle');
+  const panel=document.getElementById('panel');
+  const SNAP_HIGH=0.63, SNAP_LOW=0.22;
+  let startY, startH;
+  handle.addEventListener('touchstart',e=>{
+    startY=e.touches[0].clientY;
+    startH=panel.getBoundingClientRect().height;
+    panel.style.transition='none';
+  },{passive:true});
+  handle.addEventListener('touchmove',e=>{
+    if(startY==null) return;
+    const dy=e.touches[0].clientY-startY;
+    const nh=Math.max(window.innerHeight*SNAP_LOW,Math.min(window.innerHeight*.92,startH-dy));
+    panel.style.height=nh+'px';
+    map?.invalidateSize();
+  },{passive:true});
+  handle.addEventListener('touchend',e=>{
+    if(startY==null) return;
+    panel.style.transition='height .3s';
+    const cur=panel.getBoundingClientRect().height;
+    const mid=window.innerHeight*(SNAP_HIGH+SNAP_LOW)/2;
+    panel.style.height=(cur>mid?SNAP_HIGH:SNAP_LOW)*100+'%';
+    setTimeout(()=>map?.invalidateSize(),320);
+    startY=null;
+  },{passive:true});
+}
+
+// ═══════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════
+window.addEventListener('load',()=>{
+  initMap();
+  renderStrip();
+  switchTab(S.tab||'iti');
+  fetchWx(S.date);
+  initPanelDrag();
+  document.getElementById('panel').addEventListener('touchend',()=>{ setTimeout(()=>map?.invalidateSize(),350); });
+  initFirebase();
+});
+</script>
+</body>
+</html>
