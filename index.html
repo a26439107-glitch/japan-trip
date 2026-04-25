@@ -1138,8 +1138,9 @@ function parseMapUrl(){
   const lngEl=document.getElementById('iLng');
   if(!url){ status.textContent='未設定座標'; status.style.color='var(--text3)'; return; }
   let m;
-  // Pattern 1: !3dlat!4dlng (真實景點座標，優先)
-  if((m=url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/))){}
+  // Pattern 1: !3dlat!4dlng (取最後一組，才是當前景點真實座標)
+  const all3d4d=[...url.matchAll(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/g)];
+  if(all3d4d.length){ m=all3d4d[all3d4d.length-1]; }
   // Pattern 2: ?q=lat,lng or &ll=lat,lng or center=lat,lng
   else if((m=url.match(/[?&](?:q|ll|center|destination)=(-?\d+\.\d+),(-?\d+\.\d+)/))){}
   // Pattern 3: @lat,lng (地圖中心，後備)
