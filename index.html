@@ -7,10 +7,7 @@
 <meta name="theme-color" content="#16162a">
 <title>🇯🇵 東北・北信越</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -463,25 +460,27 @@ function updateMap(){
   const pts = S.itiItems.filter(i=>i.date===S.date&&i.lat&&i.lng&&!i.isFlight)
                          .sort((a,b)=>(a.time||'').localeCompare(b.time||''));
   if(!pts.length) return;
-  const coords = pts.map(p=>[p.lat,p.lng]);
-  if(coords.length>1) L.polyline(coords,{color:'#7b6cf6',weight:2.5,dashArray:'8 5',opacity:.75}).addTo(rLayer);
-  const cluster = L.markerClusterGroup({
-    maxClusterRadius:40,
-    iconCreateFunction(c){
-      return L.divIcon({html:`<div style="background:#8b5cf6;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5)">${c.getChildCount()}</div>`,iconSize:[32,32],className:''});
-    }
+  // 偏移重疊座標：相同座標的標記用螺旋方式展開
+  const seen={};
+  const placed=pts.map(p=>{
+    const key=`${p.lat.toFixed(4)},${p.lng.toFixed(4)}`;
+    const n=seen[key]=(seen[key]||0)+1;
+    if(n===1) return {lat:p.lat,lng:p.lng};
+    const angle=(n-2)*(Math.PI*2/6), r=0.0006;
+    return {lat:p.lat+Math.cos(angle)*r, lng:p.lng+Math.sin(angle)*r};
   });
+  const coords=placed.map(p=>[p.lat,p.lng]);
+  if(coords.length>1) L.polyline(coords,{color:'#7b6cf6',weight:2.5,dashArray:'8 5',opacity:.75}).addTo(rLayer);
   pts.forEach((p,i)=>{
-    const isH = p.cat==='hotel';
-    const col = isH ? '#ff6b6b' : '#8b5cf6';
-    const ico = L.divIcon({
+    const isH=p.cat==='hotel';
+    const col=isH?'#ff6b6b':'#8b5cf6';
+    const ico=L.divIcon({
       html:`<div style="background:${col};color:#fff;width:${isH?32:26}px;height:${isH?32:26}px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${isH?15:12}px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);font-weight:700">${isH?'🏨':(i+1)}</div>`,
       iconSize:[isH?32:26,isH?32:26],iconAnchor:[isH?16:13,isH?16:13],className:''
     });
-    cluster.addLayer(L.marker([p.lat,p.lng],{icon:ico}).bindPopup(`<b>${p.title}</b>${p.time?'<br>'+p.time:''}`));
+    L.marker([placed[i].lat,placed[i].lng],{icon:ico}).bindPopup(`<b>${p.title}</b>${p.time?'<br>'+p.time:''}`).addTo(mLayer);
   });
-  mLayer.addLayer(cluster);
-  coords.length===1 ? map.setView(coords[0],13) : map.fitBounds(coords,{padding:[30,30]});
+  coords.length===1?map.setView(coords[0],15):map.fitBounds(coords,{padding:[40,40]});
 }
 
 // ═══════════════════════════════════════════════
