@@ -676,6 +676,10 @@ function renderFlight(f){
   </div>`;
 }
 
+function escHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function linkify(s){
+  return escHtml(s).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" onclick="event.stopPropagation()" style="color:var(--accent);text-decoration:underline">時刻表</a>');
+}
 function renderItiItem(it){
   const c=ICAT[it.cat]||ICAT.other;
   const mapUrl=it.lat&&it.lng
@@ -686,7 +690,7 @@ function renderItiItem(it){
     <div class="iico" style="background:${c.c}22;color:${c.c}">${c.i}</div>
     <div class="ibody">
       <div class="ititle">${it.title}</div>
-      ${it.note?`<div class="isub">${it.note}</div>`:''}
+      ${it.note?`<div class="isub">${linkify(it.note)}</div>`:''}
     </div>
     <a href="${mapUrl}" target="_blank" onclick="event.stopPropagation()" style="color:var(--text3);padding:4px 2px;flex-shrink:0;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:16px;line-height:1">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
