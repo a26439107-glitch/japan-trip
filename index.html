@@ -695,7 +695,7 @@ function initItiSort(){
     const [m]=day.splice(ev.oldIndex,1);
     day.splice(ev.newIndex,0,m);
     S.itiItems=[...others,...day];
-    save();
+    save(); updateMap();
   }});
 }
 
