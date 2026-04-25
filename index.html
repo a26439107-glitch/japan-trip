@@ -669,6 +669,9 @@ function renderFlight(f){
 
 function renderItiItem(it){
   const c=ICAT[it.cat]||ICAT.other;
+  const mapUrl=it.lat&&it.lng
+    ?`https://www.google.com/maps/search/${encodeURIComponent(it.title)}/@${it.lat},${it.lng},17z`
+    :`https://www.google.com/maps/search/${encodeURIComponent(it.title)}`;
   return`<div class="iitem anim" data-id="${it.id}" onclick="editItiItem('${it.id}')">
     <div class="itime">${it.time||''}</div>
     <div class="iico" style="background:${c.c}22;color:${c.c}">${c.i}</div>
@@ -676,6 +679,9 @@ function renderItiItem(it){
       <div class="ititle">${it.title}</div>
       ${it.note?`<div class="isub">${it.note}</div>`:''}
     </div>
+    <a href="${mapUrl}" target="_blank" onclick="event.stopPropagation()" style="color:var(--text3);padding:4px 2px;flex-shrink:0;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:16px;line-height:1">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    </a>
     <div class="drag-h">⠿</div>
   </div>`;
 }
@@ -1348,16 +1354,6 @@ function openSettings(){
     <div class="fg"><label class="fl">旅費預算 (JPY)</label><input class="fi" id="setBudget" type="number" value="${S.budget||200000}"></div>
     <button class="btn btn-p" onclick="saveSettings()">儲存設定</button>
     <div style="height:1px;background:var(--border);margin:16px 0"></div>
-    <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">資料備份</div>
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button class="btn" style="flex:1;background:rgba(139,92,246,.12);color:var(--accent2);border:1.5px solid rgba(139,92,246,.3)" onclick="exportData()">📤 匯出 JSON</button>
-      <button class="btn" style="flex:1;background:rgba(139,92,246,.12);color:var(--accent2);border:1.5px solid rgba(139,92,246,.3)" onclick="document.getElementById('importFile').click()">📥 匯入 JSON</button>
-      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)">
-    </div>
-    <div style="font-size:10px;color:var(--text3);margin-bottom:16px">匯出後傳送到其他裝置，再匯入即可同步資料</div>
-    <div style="height:1px;background:var(--border);margin-bottom:16px"></div>
-    <button class="btn" style="background:rgba(224,85,85,.12);color:var(--red);border:1.5px solid var(--red)" onclick="if(confirm('確定要重置所有資料？此操作無法復原'))resetAll()">🗑 重置所有資料</button>
-    <div style="height:1px;background:var(--border);margin-bottom:16px"></div>
     <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">跨裝置同步</div>
     <div style="background:var(--card2);border-radius:var(--rs);padding:12px;margin-bottom:10px">
       <div style="font-size:10px;color:var(--text3);margin-bottom:4px">此裝置的同步碼</div>
