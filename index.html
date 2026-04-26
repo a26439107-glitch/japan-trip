@@ -407,6 +407,7 @@ function normalizeS(){
   if(!S.todos) S.todos=[];
   if(!S.dayTitles) S.dayTitles={};
 }
+normalizeS();
 function migratePreExpToTWD(){
   if(typeof viewOnly!=='undefined' && viewOnly) return;
   if(!S.preExpenses || S._preTWD) return;
