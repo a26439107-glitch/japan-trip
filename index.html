@@ -400,6 +400,13 @@ if(!S._y26){
   (S.todos||[]).forEach(t=>{ if(t.date) t.date=fix(t.date); });
   S._y26=true;
 }
+function normalizeS(){
+  if(!S.itiItems) S.itiItems=[];
+  if(!S.expenses) S.expenses=[];
+  if(!S.preExpenses) S.preExpenses=[];
+  if(!S.todos) S.todos=[];
+  if(!S.dayTitles) S.dayTitles={};
+}
 function migratePreExpToTWD(){
   if(typeof viewOnly!=='undefined' && viewOnly) return;
   if(!S.preExpenses || S._preTWD) return;
@@ -432,7 +439,7 @@ function initFirebase(){
       setSyncStatus('syncing');
       db.ref('trips/'+fbUid).on('value',snap=>{
         const data=snap.val();
-        if(data){ S=data; renderStrip(); renderContent(); setSyncStatus('ok'); }
+        if(data){ S=data; normalizeS(); renderStrip(); renderContent(); setSyncStatus('ok'); }
         else setSyncStatus('err');
       });
       return;
@@ -444,6 +451,7 @@ function initFirebase(){
     db.ref('trips/'+fbUid).once('value').then(snap=>{
       const data=snap.val();
       if(data){ S=data; }
+      normalizeS();
       if(!S._preTWD){ migratePreExpToTWD(); save(); }
       localStorage.setItem('jtrip25',JSON.stringify(S));
       renderStrip(); renderContent();
@@ -452,7 +460,7 @@ function initFirebase(){
       db.ref('trips/'+fbUid).on('value',snap=>{
         if(fbWriting) return;
         const data=snap.val();
-        if(data){ S=data; localStorage.setItem('jtrip25',JSON.stringify(S)); renderStrip(); renderContent(); setSyncStatus('ok'); }
+        if(data){ S=data; normalizeS(); localStorage.setItem('jtrip25',JSON.stringify(S)); renderStrip(); renderContent(); setSyncStatus('ok'); }
       });
     });
   }).catch(()=>setSyncStatus('err'));
