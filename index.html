@@ -400,6 +400,13 @@ if(!S._y26){
   (S.todos||[]).forEach(t=>{ if(t.date) t.date=fix(t.date); });
   S._y26=true;
 }
+function migratePreExpToTWD(){
+  if(typeof viewOnly!=='undefined' && viewOnly) return;
+  if(!S.preExpenses || S._preTWD) return;
+  S.preExpenses.forEach(e=>{ e.amount=Math.round(e.amount*rate); });
+  S._preTWD=true;
+}
+// migration runs once both at boot and after Firebase load (whichever brings unmigrated data first)
 // ═══════════════════════════════════════════════
 // FIREBASE
 // ═══════════════════════════════════════════════
@@ -436,7 +443,10 @@ function initFirebase(){
     setSyncStatus('syncing');
     db.ref('trips/'+fbUid).once('value').then(snap=>{
       const data=snap.val();
-      if(data){ S=data; localStorage.setItem('jtrip25',JSON.stringify(S)); renderStrip(); renderContent(); }
+      if(data){ S=data; }
+      if(!S._preTWD){ migratePreExpToTWD(); save(); }
+      localStorage.setItem('jtrip25',JSON.stringify(S));
+      renderStrip(); renderContent();
       setSyncStatus('ok');
       // 即時監聽遠端變更（其他裝置寫入）
       db.ref('trips/'+fbUid).on('value',snap=>{
@@ -747,7 +757,7 @@ function renderExp(){
   // Combined categories: trip + pre-trip for 支出分類
   const cats={};
   all.forEach(e=>{ cats[e.cat]=(cats[e.cat]||0)+e.amount; });
-  S.preExpenses.forEach(e=>{ cats[e.cat]=(cats[e.cat]||0)+e.amount; });
+  S.preExpenses.forEach(e=>{ cats[e.cat]=(cats[e.cat]||0)+Math.round(e.amount/rate); });
   const catsTotal=Object.values(cats).reduce((s,v)=>s+v,0);
   const budget=S.budget||200000;
   const budPct=Math.min(100,Math.round(tripT/budget*100));
@@ -800,8 +810,8 @@ function renderExp(){
       <div style="font-size:30px">🧳</div>
       <div style="flex:1">
         <div style="font-size:11px;color:var(--text2);font-weight:600">行前旅費總額</div>
-        <div style="font-size:22px;font-weight:800;line-height:1.1">¥${preTotal.toLocaleString()}</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px">≈ TWD $${Math.round(preTotal*rate).toLocaleString()}</div>
+        <div style="font-size:22px;font-weight:800;line-height:1.1">NT$${preTotal.toLocaleString()}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">≈ ¥${Math.round(preTotal/rate).toLocaleString()}</div>
       </div>
     </div>`;
     h+=`<div class="sh"><span class="sh-title">旅費明細（機酒、票券）</span></div>`;
@@ -844,7 +854,7 @@ function renderPreExpItem(e){
   return`<div class="eitem anim" data-id="${e.id}" onclick="editPreExp('${e.id}')">
     <div class="eico" style="background:${c.c}22">${c.i}</div>
     <div class="ebody"><div class="etitle">${e.title}</div><div class="edate">${c.l}${e.note?' · '+e.note:''}</div></div>
-    <div class="eamt">¥${e.amount.toLocaleString()}</div>
+    <div class="eamt">NT$${e.amount.toLocaleString()}</div>
   </div>`;
 }
 
@@ -1247,7 +1257,7 @@ function openAddPreExp(pre={}){
       <input type="hidden" id="peCat" value="${pre.cat||'transport'}">
     </div>
     <div class="fg"><label class="fl">項目名稱</label><input class="fi" id="peTitle" placeholder="機票、飯店、票券..." value="${pre.title||''}"></div>
-    <div class="fg"><label class="fl">金額 (JPY ¥)</label><input class="fi" id="peAmt" type="number" placeholder="0" value="${pre.amount||''}" oninput="updatePreTWD()"></div>
+    <div class="fg"><label class="fl">金額 (TWD NT$)</label><input class="fi" id="peAmt" type="number" placeholder="0" value="${pre.amount||''}" oninput="updatePreTWD()"></div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:10px" id="preTwdPreview"></div>
     <div class="fg"><label class="fl">備註</label><input class="fi" id="peNote" placeholder="訂購平台、訂單編號..." value="${pre.note||''}"></div>
     <button class="btn btn-p" onclick="savePreExp('${pre.id||''}')">${pre.id?'儲存':'新增旅費'}</button>
@@ -1258,7 +1268,7 @@ function openAddPreExp(pre={}){
 function updatePreTWD(){
   const a=parseFloat(document.getElementById('peAmt')?.value)||0;
   const p=document.getElementById('preTwdPreview');
-  if(p) p.textContent=a>0?`≈ TWD $${Math.round(a*rate).toLocaleString()}`:'';
+  if(p) p.textContent=a>0?`≈ ¥${Math.round(a/rate).toLocaleString()}`:'';
 }
 function savePreExp(eid){
   const title=document.getElementById('peTitle').value;
