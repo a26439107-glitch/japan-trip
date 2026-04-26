@@ -74,6 +74,17 @@ button,input,select,textarea{font-family:inherit}
 .tab-area{flex:1;overflow-y:auto;padding-bottom:calc(var(--nav-h) + 8px);overscroll-behavior:contain}
 .tab-area::-webkit-scrollbar{display:none}
 
+/* ── VIEW-ONLY MODE ── */
+html.viewonly .ni-plus,
+html.viewonly .add-inline,
+html.viewonly .sh-plus,
+html.viewonly .sh-btn,
+html.viewonly .drag-h,
+html.viewonly .fab{display:none !important}
+html.viewonly .day-title{pointer-events:none;user-select:text}
+html.viewonly .iti-item,
+html.viewonly .iti-item *{cursor:default !important}
+
 /* ── BOTTOM NAV ── */
 .bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;height:var(--nav-h);background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
 .ni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;padding:8px 4px 18px;cursor:pointer;color:var(--text3);font-size:10.5px;transition:color .2s;border:none;background:none;min-height:44px}
@@ -402,11 +413,24 @@ const FB_CONFIG = {
   appId:"1:105175014664:web:abcdd2138933899f8660bd"
 };
 let db=null, fbUid=null, fbWriting=false;
+const viewParam=new URLSearchParams(location.search).get('view');
+const viewOnly=!!viewParam;
+if(viewOnly) document.documentElement.classList.add('viewonly');
 function initFirebase(){
   firebase.initializeApp(FB_CONFIG);
   db=firebase.database();
-  const savedUid=localStorage.getItem('jtrip_uid');
   firebase.auth().signInAnonymously().then(cred=>{
+    if(viewOnly){
+      fbUid=viewParam;
+      setSyncStatus('syncing');
+      db.ref('trips/'+fbUid).on('value',snap=>{
+        const data=snap.val();
+        if(data){ S=data; renderStrip(); renderContent(); setSyncStatus('ok'); }
+        else setSyncStatus('err');
+      });
+      return;
+    }
+    const savedUid=localStorage.getItem('jtrip_uid');
     fbUid=savedUid||cred.user.uid;
     if(!savedUid) localStorage.setItem('jtrip_uid',fbUid);
     setSyncStatus('syncing');
@@ -439,6 +463,7 @@ function linkDevice(){
   location.reload();
 }
 function save(){
+  if(viewOnly) return;
   localStorage.setItem('jtrip25',JSON.stringify(S));
   if(db&&fbUid){
     fbWriting=true;
@@ -1052,6 +1077,7 @@ function selChip(el, inputId){
 }
 
 function openAddIti(pre={}){
+  if(viewOnly) return;
   const isFlight=pre.isFlight||pre.cat==='flight';
   const html=`
     <div class="fg">
@@ -1174,6 +1200,7 @@ function delItiItem(id){
 // EXPENSE CRUD
 // ═══════════════════════════════════════════════
 function openAddExp(pre={}){
+  if(viewOnly) return;
   const html=`
     <div class="fg">
       <label class="fl">分類</label>
@@ -1212,6 +1239,7 @@ function delExp(id){ S.expenses=S.expenses.filter(e=>e.id!==id); save(); renderS
 // PRE-TRIP EXPENSE CRUD (旅費)
 // ═══════════════════════════════════════════════
 function openAddPreExp(pre={}){
+  if(viewOnly) return;
   const html=`
     <div class="fg">
       <label class="fl">分類</label>
@@ -1325,6 +1353,7 @@ function saveReceipt(){
 // TODO CRUD
 // ═══════════════════════════════════════════════
 function openAddTodo(pre={}){
+  if(viewOnly) return;
   const existCats=[...new Set(S.todos.map(t=>t.cat).filter(Boolean))];
   const html=`
     <div class="fg"><label class="fl">待辦事項</label><input class="fi" id="tTitle" placeholder="填寫待辦..." value="${pre.title||''}"></div>
@@ -1380,11 +1409,20 @@ function openSettings(){
       </div>
       <div style="font-size:10px;color:var(--text3);margin-top:4px">連結後兩台裝置共用同一份資料，即時同步</div>
     </div>
+    <div style="height:1px;background:var(--border);margin:16px 0"></div>
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">分享給朋友（唯讀）</div>
+    <button onclick="copyShareLink()" style="width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:12px;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer">📋 複製唯讀分享連結</button>
+    <div style="font-size:10px;color:var(--text3);margin-top:6px;line-height:1.5">對方開啟連結即可瀏覽你的行程，無法編輯任何內容</div>
     <div style="margin-top:16px;font-size:11px;color:var(--text3);text-align:center;line-height:1.6">
       旅程：7/25 (六) – 8/6 (三) · 13天12夜<br>
       資料同步至 Firebase 雲端
     </div>`;
   openSheet('設定', html);
+}
+function copyShareLink(){
+  if(!fbUid){ alert('同步尚未就緒，請稍後再試'); return; }
+  const url=`${location.origin}${location.pathname}?view=${fbUid}`;
+  navigator.clipboard.writeText(url).then(()=>alert('✅ 已複製分享連結')).catch(()=>prompt('複製此連結：',url));
 }
 function saveSettings(){
   S.apiKey=document.getElementById('setKey').value;
