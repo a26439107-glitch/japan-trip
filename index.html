@@ -31,7 +31,7 @@
   --blue: #5a8bc8;
   --r: 10px;
   --rs: 6px;
-  --nav-h: 68px;
+  --nav-h: 76px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;font-family:-apple-system,'Helvetica Neue',sans-serif;background:var(--bg);color:var(--text)}
@@ -76,12 +76,12 @@ button,input,select,textarea{font-family:inherit}
 
 /* ── BOTTOM NAV ── */
 .bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;height:var(--nav-h);background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
-.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;cursor:pointer;color:var(--text3);font-size:10.5px;transition:color .2s;border:none;background:none}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px 4px;cursor:pointer;color:var(--text3);font-size:10.5px;transition:color .2s;border:none;background:none;min-height:44px}
 .ni.active{color:var(--accent)}
 .ni svg{width:22px;height:22px}
 
 /* ── FAB ── */
-.fab{position:fixed;bottom:calc(var(--nav-h) + 14px);left:50%;transform:translateX(-50%);width:50px;height:50px;border-radius:50%;background:var(--accent);border:none;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 4px 20px rgba(123,108,246,.45);z-index:50;display:flex;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s}
+.fab{position:fixed;bottom:calc(var(--nav-h) - 22px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:54px;height:54px;border-radius:50%;background:var(--accent);border:3px solid var(--bg);color:#fff;font-size:24px;cursor:pointer;box-shadow:0 4px 20px rgba(123,108,246,.45);z-index:110;display:flex;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s}
 .fab:active{transform:translateX(-50%) scale(.93);box-shadow:0 2px 10px rgba(123,108,246,.3)}
 .fab.hidden{display:none}
 
@@ -137,7 +137,10 @@ button,input,select,textarea{font-family:inherit}
 .panel.full .panel-handle{display:none}
 
 /* ── DAY TITLE ── */
-.day-title-wrap{padding:14px 14px 10px}
+.day-title-wrap{padding:14px 14px 10px;display:flex;align-items:flex-start;gap:10px}
+.day-title-main{flex:1;min-width:0}
+.day-wx-pill{flex-shrink:0;display:inline-flex;align-items:center;gap:5px;padding:6px 10px;background:var(--card);border-radius:14px;font-size:13px;font-weight:600;color:var(--text);margin-top:2px;line-height:1}
+.day-wx-pill .wxi{font-size:14px;line-height:1}
 .day-title{font-size:20px;font-weight:700;line-height:1.3;outline:none;border-radius:6px;padding:0;transition:background .15s;color:var(--text);cursor:text;display:block;width:100%;box-sizing:border-box;word-break:break-word;user-select:none}
 .day-title:focus{outline:none;padding:4px;margin:-4px}
 .day-title:focus{background:rgba(255,255,255,.06);user-select:text}
@@ -241,7 +244,7 @@ button,input,select,textarea{font-family:inherit}
 .legend-pct{font-size:12px;color:var(--text);font-weight:700}
 
 /* ── TAB BAR CENTER PLUS ── */
-.ni-plus{width:52px;height:52px;border-radius:50%;background:var(--accent);color:#fff;margin-top:-22px;border:4px solid var(--surface);box-shadow:0 4px 14px rgba(139,92,246,.5);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:300;line-height:1;flex-shrink:0;cursor:pointer;transition:transform .15s,opacity .2s,background .2s}
+.ni-plus{width:58px;height:58px;border-radius:50%;background:var(--accent);color:#fff;margin-top:-38px;border:4px solid var(--surface);box-shadow:0 6px 18px rgba(139,92,246,.55);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:300;line-height:1;flex-shrink:0;cursor:pointer;transition:transform .15s,opacity .2s,background .2s}
 .ni-plus:active{transform:scale(.92)}
 .ni-plus.hidden{opacity:0;pointer-events:none;transform:scale(.8)}
 
@@ -608,24 +611,16 @@ function renderIti(){
   const d0=new Date(S.date);
   const dateSub=`${d0.getMonth()+1}/${d0.getDate()} 週${DAYS[d0.getDay()]}`;
   h+=`<div class="day-title-wrap">
-    <div class="day-title" contenteditable="true" spellcheck="false"
-      onfocus="this.parentElement.classList.add('focused')"
-      onblur="this.parentElement.classList.remove('focused');if(!S.dayTitles)S.dayTitles={};S.dayTitles['${S.date}']=this.textContent.trim();save()"
-      onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
-    >${titleVal}</div>
-    <div class="day-title-sub">${dateSub}</div>
+    <div class="day-title-main">
+      <div class="day-title" contenteditable="true" spellcheck="false"
+        onfocus="this.parentElement.parentElement.classList.add('focused')"
+        onblur="this.parentElement.parentElement.classList.remove('focused');if(!S.dayTitles)S.dayTitles={};S.dayTitles['${S.date}']=this.textContent.trim();save()"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+      >${titleVal}</div>
+      <div class="day-title-sub">${dateSub}</div>
+    </div>
+    ${wx?`<div class="day-wx-pill" title="${wxDesc(wx.code)} · ${wx.max}°/${wx.min}°"><span class="wxi">${wxIcon(wx.code)}</span>${wx.max}°C</div>`:''}
   </div>`;
-
-  if(wx){
-    h+=`<div class="wx anim">
-      <div class="wx-ico">${wxIcon(wx.code)}</div>
-      <div class="wx-info">
-        <div class="wx-loc">仙台 參考天氣</div>
-        <div class="wx-temp">${wx.max}° / ${wx.min}°</div>
-      </div>
-      <div class="wx-right">${wxDesc(wx.code)}</div>
-    </div>`;
-  }
 
   const flights=day.filter(i=>i.isFlight);
   const rest=day.filter(i=>!i.isFlight);
@@ -732,17 +727,18 @@ function renderExp(){
   const budget=S.budget||200000;
   const budPct=Math.min(100,Math.round(tripT/budget*100));
 
+  const tw=v=>'NT$'+Math.round(v*rate).toLocaleString();
   let h=`<div style="padding-top:24px"><div class="dgrid">
-    <div class="scard"><div class="sv" style="color:var(--accent)">¥${todayT.toLocaleString()}</div><div class="sl">今日花費</div></div>
-    <div class="scard"><div class="sv" style="color:var(--accent)">¥${tripT.toLocaleString()}</div><div class="sl">旅程累計</div></div>
-    <div class="scard"><div class="sv" style="color:var(--accent)">¥${avg.toLocaleString()}</div><div class="sl">日均花費</div></div>
+    <div class="scard"><div class="sv" style="color:var(--accent)">${tw(todayT)}</div><div class="sl">今日花費</div></div>
+    <div class="scard"><div class="sv" style="color:var(--accent)">${tw(tripT)}</div><div class="sl">旅程累計</div></div>
+    <div class="scard"><div class="sv" style="color:var(--accent)">${tw(avg)}</div><div class="sl">日均花費</div></div>
   </div>`;
 
   // Budget progress
   h+=`<div class="card" style="padding:14px;margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:6px">
       <span>預算使用 ${budPct}%</span>
-      <span>¥${budget.toLocaleString()}</span>
+      <span>${tw(budget)}</span>
     </div>
     <div class="prog-wrap"><div class="prog-bar" style="width:${budPct}%;background:${budPct>80?'var(--red)':budPct>60?'var(--orange)':'var(--accent)'}"></div></div>
   </div>`;
