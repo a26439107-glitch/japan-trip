@@ -890,7 +890,7 @@ function initExpSort(){
 // ═══════════════════════════════════════════════
 // EXCHANGE RATE
 // ═══════════════════════════════════════════════
-let rate=4.65; // TWD per JPY
+let rate=0.21; // TWD per JPY (1 JPY ≈ 0.21 TWD)
 async function fetchRate(){
   try{
     const r=await fetch('https://open.er-api.com/v6/latest/JPY');
@@ -1520,6 +1520,7 @@ window.addEventListener('load',()=>{
   renderStrip();
   switchTab(S.tab||'iti');
   fetchWx(S.date);
+  fetchRate();
   initPanelDrag();
   document.getElementById('panel').addEventListener('touchend',()=>{ setTimeout(()=>map?.invalidateSize(),350); });
   initFirebase();
