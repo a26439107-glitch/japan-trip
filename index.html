@@ -770,6 +770,7 @@ function initItiSort(){
 // ═══════════════════════════════════════════════
 function renderExp(){
   const all=S.expenses;
+  const today=new Date().toISOString().split('T')[0];
   const tripT=all.reduce((s,e)=>s+e.amount,0);
 
   // Combined categories: trip + pre-trip for 支出分類
