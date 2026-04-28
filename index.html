@@ -1439,6 +1439,7 @@ function openSettings(){
     <div class="fg"><label class="fl">Claude API Key（收據 AI 辨識）</label><input class="fi" id="setKey" type="password" placeholder="sk-ant-api..." value="${S.apiKey||''}"><div style="font-size:10px;color:var(--text3);margin-top:4px">用於收據掃描 AI 辨識功能，Key 僅存於本機瀏覽器</div></div>
     <div class="fg"><label class="fl">旅費預算 (JPY)</label><input class="fi" id="setBudget" type="number" value="${S.budget||200000}"></div>
     <button class="btn btn-p" onclick="saveSettings()">儲存設定</button>
+    <button class="btn" onclick="location.href=location.pathname+'?v='+Date.now()" style="width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text2);margin-top:8px">🔄 重新載入最新版本</button>
     <div style="height:1px;background:var(--border);margin:16px 0"></div>
     <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">跨裝置同步</div>
     <div style="background:var(--card2);border-radius:var(--rs);padding:12px;margin-bottom:10px">
