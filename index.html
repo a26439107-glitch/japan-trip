@@ -749,14 +749,29 @@ function renderItiItem(it){
   </div>`;
 }
 
+function applyDragStyle(el){
+  el.style.background='#2a2a40';
+  el.style.boxShadow='0 14px 36px rgba(0,0,0,.6)';
+  el.style.borderRadius='12px';
+  el.style.zIndex='999';
+  el.style.position='relative';
+}
+function removeDragStyle(el){
+  el.style.background='';
+  el.style.boxShadow='';
+  el.style.borderRadius='';
+  el.style.zIndex='';
+  el.style.position='';
+}
 function initItiSort(){
   if(viewOnly) return;
   const el=document.getElementById('ilist');
   if(!el||!window.Sortable) return;
   Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,
-    onChoose(){ navigator.vibrate?.(15); document.body.classList.add('sorting'); },
+    onChoose(ev){ navigator.vibrate?.(15); document.body.classList.add('sorting'); applyDragStyle(ev.item); },
+    onUnchoose(ev){ removeDragStyle(ev.item); },
     onEnd(ev){
-      document.body.classList.remove('sorting');
+      document.body.classList.remove('sorting'); removeDragStyle(ev.item);
       const others=S.itiItems.filter(i=>!(i.date===S.date&&!i.isFlight));
       const day=S.itiItems.filter(i=>i.date===S.date&&!i.isFlight);
       const [m]=day.splice(ev.oldIndex,1);
@@ -910,9 +925,10 @@ function initExpSort(){
   document.querySelectorAll('#preList,.elist-g').forEach(el=>{
     if(!window.Sortable) return;
     Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,
-      onChoose(){ navigator.vibrate?.(15); document.body.classList.add('sorting'); },
-      onEnd(){
-        document.body.classList.remove('sorting');
+      onChoose(ev){ navigator.vibrate?.(15); document.body.classList.add('sorting'); applyDragStyle(ev.item); },
+      onUnchoose(ev){ removeDragStyle(ev.item); },
+      onEnd(ev){
+        document.body.classList.remove('sorting'); removeDragStyle(ev.item);
         const ids=[...el.querySelectorAll('.eitem[data-id]')].map(e=>e.dataset.id);
         if(el.id==='preList'){
           S.preExpenses=ids.map(id=>S.preExpenses.find(e=>e.id===id)).filter(Boolean);
@@ -1056,9 +1072,10 @@ function initTodoSort(){
   document.querySelectorAll('.todo-group').forEach(el=>{
     if(!window.Sortable) return;
     Sortable.create(el,{animation:150,group:'todos',delay:600,delayOnTouchOnly:true,
-      onChoose(){ navigator.vibrate?.(15); document.body.classList.add('sorting'); },
+      onChoose(ev){ navigator.vibrate?.(15); document.body.classList.add('sorting'); applyDragStyle(ev.item); },
+      onUnchoose(ev){ removeDragStyle(ev.item); },
       onEnd(ev){
-        document.body.classList.remove('sorting');
+        document.body.classList.remove('sorting'); removeDragStyle(ev.item);
         // 跨分類拖曳：更新該 todo 的 cat
         const movedId=ev.item.dataset.id;
         const newCat=ev.to.dataset.cat||'';
