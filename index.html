@@ -58,7 +58,7 @@ button,input,select,textarea{font-family:inherit}
 /* ── PANEL ── */
 .panel{position:absolute;bottom:0;left:0;right:0;z-index:20;background:var(--bg);border-radius:22px 22px 0 0;height:63%;display:flex;flex-direction:column;transition:height .3s}
 .panel.full{height:100%!important;border-radius:0}
-.panel-handle{width:100%;padding:12px 0 8px;cursor:grab;flex-shrink:0;display:flex;justify-content:center;align-items:center}
+.panel-handle{width:100%;padding:14px 0 10px;cursor:grab;flex-shrink:0;display:flex;justify-content:center;align-items:center}
 .panel-handle::after{content:'';width:36px;height:4px;background:var(--text3);border-radius:2px;display:block}
 
 /* ── DATE STRIP ── */
@@ -79,8 +79,9 @@ button,input,select,textarea{font-family:inherit}
 /* ── DRAG STATES (Sortable.js) ── */
 .sortable-chosen{transform:scale(1.03);box-shadow:0 10px 28px rgba(0,0,0,.45);background:var(--card2)!important;z-index:10;border-radius:var(--r)}
 .sortable-ghost{opacity:.25}
-.sortable-drag{cursor:grabbing;opacity:.95}
+.sortable-drag{cursor:grabbing;opacity:.95;background:var(--card2)!important;box-shadow:0 14px 36px rgba(0,0,0,.55)!important;border-radius:var(--r)}
 .sortable-chosen::after,.sortable-ghost::after{display:none!important}
+body.sorting .iitem::after{display:none!important}
 @keyframes liftPulse{0%{transform:scale(1)}50%{transform:scale(1.04)}100%{transform:scale(1.03)}}
 .sortable-chosen{animation:liftPulse .25s ease-out}
 
@@ -749,16 +750,20 @@ function renderItiItem(it){
 }
 
 function initItiSort(){
+  if(viewOnly) return;
   const el=document.getElementById('ilist');
   if(!el||!window.Sortable) return;
-  Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,onEnd(ev){
-    const others=S.itiItems.filter(i=>!(i.date===S.date&&!i.isFlight));
-    const day=S.itiItems.filter(i=>i.date===S.date&&!i.isFlight);
-    const [m]=day.splice(ev.oldIndex,1);
-    day.splice(ev.newIndex,0,m);
-    S.itiItems=[...others,...day];
-    save(); updateMap();
-  }});
+  Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,
+    onChoose(){ navigator.vibrate?.(15); document.body.classList.add('sorting'); },
+    onEnd(ev){
+      document.body.classList.remove('sorting');
+      const others=S.itiItems.filter(i=>!(i.date===S.date&&!i.isFlight));
+      const day=S.itiItems.filter(i=>i.date===S.date&&!i.isFlight);
+      const [m]=day.splice(ev.oldIndex,1);
+      day.splice(ev.newIndex,0,m);
+      S.itiItems=[...others,...day];
+      save(); updateMap();
+    }});
 }
 
 // ═══════════════════════════════════════════════
@@ -901,20 +906,24 @@ function initPieChart(){
 }
 
 function initExpSort(){
+  if(viewOnly) return;
   document.querySelectorAll('#preList,.elist-g').forEach(el=>{
     if(!window.Sortable) return;
-    Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,onEnd(){
-      const ids=[...el.querySelectorAll('.eitem[data-id]')].map(e=>e.dataset.id);
-      if(el.id==='preList'){
-        S.preExpenses=ids.map(id=>S.preExpenses.find(e=>e.id===id)).filter(Boolean);
-      } else {
-        const date=el.dataset.date;
-        const others=S.expenses.filter(e=>e.date!==date);
-        const day=ids.map(id=>S.expenses.find(e=>e.id===id)).filter(Boolean);
-        S.expenses=[...others,...day];
-      }
-      save();
-    }});
+    Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,
+      onChoose(){ navigator.vibrate?.(15); document.body.classList.add('sorting'); },
+      onEnd(){
+        document.body.classList.remove('sorting');
+        const ids=[...el.querySelectorAll('.eitem[data-id]')].map(e=>e.dataset.id);
+        if(el.id==='preList'){
+          S.preExpenses=ids.map(id=>S.preExpenses.find(e=>e.id===id)).filter(Boolean);
+        } else {
+          const date=el.dataset.date;
+          const others=S.expenses.filter(e=>e.date!==date);
+          const day=ids.map(id=>S.expenses.find(e=>e.id===id)).filter(Boolean);
+          S.expenses=[...others,...day];
+        }
+        save();
+      }});
   });
 }
 
@@ -1041,33 +1050,25 @@ function renderTodoItem(t){
     </div>
   </div>`;
 }
-function initSwipeDelete(){
-  document.querySelectorAll('.swipe-item').forEach(el=>{
-    let sx=0;
-    el.addEventListener('touchstart',e=>{ sx=e.touches[0].clientX; });
-    el.addEventListener('touchend',e=>{
-      const ex=e.changedTouches[0].clientX;
-      const delta=sx-ex;
-      if(delta>40) el.classList.add('swiped');
-      else if(delta<-20) el.classList.remove('swiped');
-    });
-  });
-}
 
 function initTodoSort(){
+  if(viewOnly) return;
   document.querySelectorAll('.todo-group').forEach(el=>{
     if(!window.Sortable) return;
-    Sortable.create(el,{animation:150,group:'todos',delay:600,delayOnTouchOnly:true,onEnd(ev){
-      // 跨分類拖曳：更新該 todo 的 cat
-      const movedId=ev.item.dataset.id;
-      const newCat=ev.to.dataset.cat||'';
-      const moved=S.todos.find(t=>t.id===movedId);
-      if(moved) moved.cat=newCat;
-      // 依 DOM 順序重建 S.todos
-      const ids=[...document.querySelectorAll('.titem[data-id]')].map(e=>e.dataset.id);
-      S.todos=ids.map(id=>S.todos.find(t=>t.id===id)).filter(Boolean);
-      save();
-    }});
+    Sortable.create(el,{animation:150,group:'todos',delay:600,delayOnTouchOnly:true,
+      onChoose(){ navigator.vibrate?.(15); document.body.classList.add('sorting'); },
+      onEnd(ev){
+        document.body.classList.remove('sorting');
+        // 跨分類拖曳：更新該 todo 的 cat
+        const movedId=ev.item.dataset.id;
+        const newCat=ev.to.dataset.cat||'';
+        const moved=S.todos.find(t=>t.id===movedId);
+        if(moved) moved.cat=newCat;
+        // 依 DOM 順序重建 S.todos
+        const ids=[...document.querySelectorAll('.titem[data-id]')].map(e=>e.dataset.id);
+        S.todos=ids.map(id=>S.todos.find(t=>t.id===id)).filter(Boolean);
+        save();
+      }});
   });
 }
 function toggleTodo(id){
@@ -1512,10 +1513,11 @@ function importData(input){
 // PANEL DRAG
 // ═══════════════════════════════════════════════
 function initPanelDrag(){
+  if(viewOnly) return;
   const handle=document.getElementById('panelHandle');
   const panel=document.getElementById('panel');
   const mapEl=document.getElementById('map');
-  const SNAP_HIGH=0.63, SNAP_LOW=0.22;
+  const SNAPS=[0.22, 0.63, 0.92]; // low / mid / high
   let startY, startH;
   function setHeights(panelH, animate){
     const t=animate?'height .3s':'none';
@@ -1533,16 +1535,15 @@ function initPanelDrag(){
   handle.addEventListener('touchmove',e=>{
     if(startY==null) return;
     const dy=e.touches[0].clientY-startY;
-    const nh=Math.max(window.innerHeight*SNAP_LOW,Math.min(window.innerHeight*.92,startH-dy));
+    const nh=Math.max(window.innerHeight*SNAPS[0], Math.min(window.innerHeight*SNAPS[2], startH-dy));
     setHeights(nh, false);
-    map?.invalidateSize();
   },{passive:true});
-  handle.addEventListener('touchend',e=>{
+  handle.addEventListener('touchend',()=>{
     if(startY==null) return;
-    const cur=panel.getBoundingClientRect().height;
-    const mid=window.innerHeight*(SNAP_HIGH+SNAP_LOW)/2;
-    const target=window.innerHeight*(cur>mid?SNAP_HIGH:SNAP_LOW);
-    setHeights(target, true);
+    const cur=panel.getBoundingClientRect().height/window.innerHeight;
+    // 吸附到最近的 snap 點
+    const target=SNAPS.reduce((a,b)=>Math.abs(b-cur)<Math.abs(a-cur)?b:a);
+    setHeights(window.innerHeight*target, true);
     setTimeout(()=>map?.invalidateSize(),320);
     startY=null;
   },{passive:true});
