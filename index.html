@@ -76,14 +76,13 @@ button,input,select,textarea{font-family:inherit}
 .tab-area{flex:1;overflow-y:auto;padding-bottom:calc(var(--nav-h) + 8px);overscroll-behavior:contain}
 .tab-area::-webkit-scrollbar{display:none}
 
-/* ── DRAG STATES (Sortable.js) ── */
-.sortable-chosen{transform:scale(1.03);box-shadow:0 10px 28px rgba(0,0,0,.45);background:var(--card2)!important;z-index:10;border-radius:var(--r)}
-.sortable-ghost{opacity:.15!important;background:transparent!important;box-shadow:none!important}
-.sortable-drag,.sortable-fallback{cursor:grabbing;opacity:.97;background:#252538!important;box-shadow:0 14px 36px rgba(0,0,0,.65)!important;border-radius:12px!important;outline:1.5px solid rgba(139,92,246,.35)}
-.sortable-chosen::after,.sortable-ghost::after{display:none!important}
+/* ── DRAG STATES (Sortable.js, forceFallback:true) ── */
+/* 原位置留空，視覺上「卡片被拿起來了」 */
+.sortable-ghost{opacity:0!important;background:transparent!important;box-shadow:none!important}
+/* 手指下浮動的卡片：實心背景 + 陰影，明確的「被拿起」感 */
+.sortable-fallback{background:#252538!important;box-shadow:0 12px 32px rgba(0,0,0,.55)!important;border-radius:12px!important;cursor:grabbing}
+/* 拖曳時隱藏行程的時間軸連接線 */
 body.sorting .iitem::after{display:none!important}
-@keyframes liftPulse{0%{transform:scale(1)}50%{transform:scale(1.04)}100%{transform:scale(1.03)}}
-.sortable-chosen{animation:liftPulse .25s ease-out}
 
 /* ── VIEW-ONLY MODE ── */
 html.viewonly .ni-plus,
@@ -749,29 +748,14 @@ function renderItiItem(it){
   </div>`;
 }
 
-function applyDragStyle(el){
-  el.style.background='#2a2a40';
-  el.style.boxShadow='0 14px 36px rgba(0,0,0,.6)';
-  el.style.borderRadius='12px';
-  el.style.zIndex='999';
-  el.style.position='relative';
-}
-function removeDragStyle(el){
-  el.style.background='';
-  el.style.boxShadow='';
-  el.style.borderRadius='';
-  el.style.zIndex='';
-  el.style.position='';
-}
 function initItiSort(){
   if(viewOnly) return;
   const el=document.getElementById('ilist');
   if(!el||!window.Sortable) return;
   Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,forceFallback:true,
-    onChoose(ev){ navigator.vibrate?.(15); document.body.classList.add('sorting'); applyDragStyle(ev.item); },
-    onUnchoose(ev){ removeDragStyle(ev.item); },
+    onChoose(){ navigator.vibrate?.(15); document.body.classList.add('sorting'); },
     onEnd(ev){
-      document.body.classList.remove('sorting'); removeDragStyle(ev.item);
+      document.body.classList.remove('sorting');
       const others=S.itiItems.filter(i=>!(i.date===S.date&&!i.isFlight));
       const day=S.itiItems.filter(i=>i.date===S.date&&!i.isFlight);
       const [m]=day.splice(ev.oldIndex,1);
@@ -786,12 +770,7 @@ function initItiSort(){
 // ═══════════════════════════════════════════════
 function renderExp(){
   const all=S.expenses;
-  const today=new Date().toISOString().split('T')[0];
-  const day=all.filter(e=>e.date===today);
-  const todayT=day.reduce((s,e)=>s+e.amount,0);
   const tripT=all.reduce((s,e)=>s+e.amount,0);
-  const days=getDates().length;
-  const avg=Math.round(tripT/days);
 
   // Combined categories: trip + pre-trip for 支出分類
   const cats={};
@@ -802,19 +781,29 @@ function renderExp(){
   const budPct=Math.min(100,Math.round(tripT/budget*100));
 
   const tw=v=>'NT$'+Math.round(v*rate).toLocaleString();
-  let h=`<div style="padding-top:24px"><div class="dgrid">
-    <div class="scard"><div class="sv" style="color:var(--accent)">${tw(todayT)}</div><div class="sl">今日花費</div></div>
-    <div class="scard"><div class="sv" style="color:var(--accent)">${tw(tripT)}</div><div class="sl">旅程累計</div></div>
-    <div class="scard"><div class="sv" style="color:var(--accent)">${tw(avg)}</div><div class="sl">日均花費</div></div>
-  </div>`;
-
-  // Budget progress
-  h+=`<div class="card" style="padding:14px;margin-bottom:10px">
-    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:6px">
-      <span>預算使用 ${budPct}%</span>
-      <span>${tw(budget)}</span>
+  // ── Hero summary card（參考設計：總支出 + 筆數 + 預算進度）
+  const barColor=budPct>90?'linear-gradient(90deg,#f87171,#ef4444)':'linear-gradient(90deg,#fbbf24,#f97316)';
+  let h=`<div style="padding-top:18px">
+    <div class="card" style="padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:var(--text2);margin-bottom:8px">旅程總支出</div>
+          <div style="font-size:30px;font-weight:800;line-height:1.05;letter-spacing:-.5px">¥${tripT.toLocaleString()}</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:6px">≈ ${tw(tripT)}</div>
+        </div>
+        <div style="background:var(--card2);border-radius:10px;padding:8px 12px;text-align:center;min-width:48px">
+          <div style="font-size:20px;font-weight:800;line-height:1">${all.length}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">筆</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;margin:14px 0 8px">
+        <span style="color:var(--text2)">預算 ¥${budget.toLocaleString()}</span>
+        <span style="color:var(--text);font-weight:700">${budPct}%</span>
+      </div>
+      <div style="background:var(--card2);border-radius:6px;height:8px;overflow:hidden">
+        <div style="height:100%;width:${budPct}%;background:${barColor};border-radius:6px;transition:width .4s"></div>
+      </div>
     </div>
-    <div class="prog-wrap"><div class="prog-bar" style="width:${budPct}%;background:${budPct>80?'var(--red)':budPct>60?'var(--orange)':'var(--accent)'}"></div></div>
   </div>`;
 
   // Pie chart (含旅費 + 旅程)
@@ -925,10 +914,9 @@ function initExpSort(){
   document.querySelectorAll('#preList,.elist-g').forEach(el=>{
     if(!window.Sortable) return;
     Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,forceFallback:true,
-      onChoose(ev){ navigator.vibrate?.(15); document.body.classList.add('sorting'); applyDragStyle(ev.item); },
-      onUnchoose(ev){ removeDragStyle(ev.item); },
+      onChoose(){ navigator.vibrate?.(15); document.body.classList.add('sorting'); },
       onEnd(ev){
-        document.body.classList.remove('sorting'); removeDragStyle(ev.item);
+        document.body.classList.remove('sorting');
         const ids=[...el.querySelectorAll('.eitem[data-id]')].map(e=>e.dataset.id);
         if(el.id==='preList'){
           S.preExpenses=ids.map(id=>S.preExpenses.find(e=>e.id===id)).filter(Boolean);
@@ -1072,10 +1060,9 @@ function initTodoSort(){
   document.querySelectorAll('.todo-group').forEach(el=>{
     if(!window.Sortable) return;
     Sortable.create(el,{animation:150,group:'todos',delay:600,delayOnTouchOnly:true,forceFallback:true,
-      onChoose(ev){ navigator.vibrate?.(15); document.body.classList.add('sorting'); applyDragStyle(ev.item); },
-      onUnchoose(ev){ removeDragStyle(ev.item); },
+      onChoose(){ navigator.vibrate?.(15); document.body.classList.add('sorting'); },
       onEnd(ev){
-        document.body.classList.remove('sorting'); removeDragStyle(ev.item);
+        document.body.classList.remove('sorting');
         // 跨分類拖曳：更新該 todo 的 cat
         const movedId=ev.item.dataset.id;
         const newCat=ev.to.dataset.cat||'';
@@ -1347,8 +1334,8 @@ function openReceipt(){
       <input type="file" id="rcFile" accept="image/*" capture="environment" style="display:none" onchange="processReceipt(this)">
     </label>
     <div class="fg">
-      <label class="fl">Claude API Key（AI辨識）</label>
-      <input class="fi" id="rcKey" type="password" placeholder="sk-ant-api..." value="${S.apiKey||''}">
+      <label class="fl">Gemini API Key（AI辨識）</label>
+      <input class="fi" id="rcKey" type="password" placeholder="AIza..." value="${S.apiKey||''}">
       <div style="font-size:10px;color:var(--text3);margin-top:4px">Key 不會上傳，僅存於本機</div>
     </div>
     <div id="rcPreview" style="display:none;margin-bottom:12px">
@@ -1374,23 +1361,27 @@ async function processReceipt(input){
     const key=document.getElementById('rcKey').value||S.apiKey;
     if(key){ S.apiKey=key; save(); }
     if(!key){
-      setRcStatus('請輸入 Claude API Key 以啟用 AI 辨識，或手動填寫下方欄位','#f0a030');
+      setRcStatus('請輸入 Gemini API Key 以啟用 AI 辨識，或手動填寫下方欄位','#f0a030');
       return;
     }
     setRcStatus('🤖 AI 辨識中...','#7b6cf6');
     try{
       const b64=e.target.result.split(',')[1];
-      const res=await fetch('https://api.anthropic.com/v1/messages',{
+      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`,{
         method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:400,messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:file.type,data:b64}},
-          {type:'text',text:'辨識這張日本收據。JSON格式回傳：{"store":"店名(繁體中文)","amount":數字,"items":"品項(繁體中文,逗號分隔)","tax":"內稅/外稅/免稅","category":"food/transport/accommodation/shopping/activity/other"}。只回傳JSON。'}
-        ]}]})
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          contents:[{parts:[
+            {inline_data:{mime_type:file.type,data:b64}},
+            {text:'辨識這張日本收據。JSON格式回傳：{"store":"店名(繁體中文)","amount":數字(總金額,純整數,不含¥逗號),"items":"品項(繁體中文,逗號分隔)","tax":"內稅/外稅/免稅","category":"food/transport/accommodation/shopping/activity/other"}。只回傳JSON。'}
+          ]}],
+          generationConfig:{responseMimeType:'application/json',temperature:0.1}
+        })
       });
       const data=await res.json();
       if(data.error) throw new Error(data.error.message);
-      const txt=data.content[0].text.replace(/```json|```/g,'').trim();
+      const txt=data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if(!txt) throw new Error('AI 沒有回傳結果');
       const r=JSON.parse(txt);
       document.getElementById('rcStore').value=r.store||'';
       document.getElementById('rcAmt').value=r.amount||'';
@@ -1453,7 +1444,7 @@ function delTodo(id){ S.todos=S.todos.filter(t=>t.id!==id); save(); renderConten
 // ═══════════════════════════════════════════════
 function openSettings(){
   const html=`
-    <div class="fg"><label class="fl">Claude API Key（收據 AI 辨識）</label><input class="fi" id="setKey" type="password" placeholder="sk-ant-api..." value="${S.apiKey||''}"><div style="font-size:10px;color:var(--text3);margin-top:4px">用於收據掃描 AI 辨識功能，Key 僅存於本機瀏覽器</div></div>
+    <div class="fg"><label class="fl">Gemini API Key（收據 AI 辨識）</label><input class="fi" id="setKey" type="password" placeholder="AIza..." value="${S.apiKey||''}"><div style="font-size:10px;color:var(--text3);margin-top:4px">用於收據掃描 AI 辨識功能，Key 僅存於本機瀏覽器。<a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent)">取得 Gemini Key</a></div></div>
     <div class="fg"><label class="fl">旅費預算 (JPY)</label><input class="fi" id="setBudget" type="number" value="${S.budget||200000}"></div>
     <button class="btn btn-p" onclick="saveSettings()">儲存設定</button>
     <button class="btn" onclick="location.href=location.pathname+'?v='+Date.now()" style="width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text2);margin-top:8px">🔄 重新載入最新版本</button>
