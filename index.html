@@ -891,8 +891,20 @@ function initPieChart(){
 }
 
 function initExpSort(){
-  document.querySelectorAll('#elist,#preList,.elist-g').forEach(el=>{
-    if(window.Sortable) Sortable.create(el,{animation:150});
+  document.querySelectorAll('#preList,.elist-g').forEach(el=>{
+    if(!window.Sortable) return;
+    Sortable.create(el,{animation:150,onEnd(){
+      const ids=[...el.querySelectorAll('.eitem[data-id]')].map(e=>e.dataset.id);
+      if(el.id==='preList'){
+        S.preExpenses=ids.map(id=>S.preExpenses.find(e=>e.id===id)).filter(Boolean);
+      } else {
+        const date=el.dataset.date;
+        const others=S.expenses.filter(e=>e.date!==date);
+        const day=ids.map(id=>S.expenses.find(e=>e.id===id)).filter(Boolean);
+        S.expenses=[...others,...day];
+      }
+      save();
+    }});
   });
 }
 
@@ -1036,7 +1048,13 @@ function initSwipeDelete(){
 function initTodoSort(){
   document.querySelectorAll('.todo-group').forEach(el=>{
     if(!window.Sortable) return;
-    Sortable.create(el,{handle:'.drag-h',animation:150,group:'todos',onEnd(){
+    Sortable.create(el,{handle:'.drag-h',animation:150,group:'todos',onEnd(ev){
+      // 跨分類拖曳：更新該 todo 的 cat
+      const movedId=ev.item.dataset.id;
+      const newCat=ev.to.dataset.cat||'';
+      const moved=S.todos.find(t=>t.id===movedId);
+      if(moved) moved.cat=newCat;
+      // 依 DOM 順序重建 S.todos
       const ids=[...document.querySelectorAll('.titem[data-id]')].map(e=>e.dataset.id);
       S.todos=ids.map(id=>S.todos.find(t=>t.id===id)).filter(Boolean);
       save();
