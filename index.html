@@ -76,6 +76,14 @@ button,input,select,textarea{font-family:inherit}
 .tab-area{flex:1;overflow-y:auto;padding-bottom:calc(var(--nav-h) + 8px);overscroll-behavior:contain}
 .tab-area::-webkit-scrollbar{display:none}
 
+/* ── DRAG STATES (Sortable.js) ── */
+.sortable-chosen{transform:scale(1.03);box-shadow:0 10px 28px rgba(0,0,0,.45);background:var(--card2)!important;z-index:10;border-radius:var(--r)}
+.sortable-ghost{opacity:.25}
+.sortable-drag{cursor:grabbing;opacity:.95}
+.sortable-chosen::after,.sortable-ghost::after{display:none!important}
+@keyframes liftPulse{0%{transform:scale(1)}50%{transform:scale(1.04)}100%{transform:scale(1.03)}}
+.sortable-chosen{animation:liftPulse .25s ease-out}
+
 /* ── VIEW-ONLY MODE ── */
 html.viewonly .ni-plus,
 html.viewonly .add-inline,
