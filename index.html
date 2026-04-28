@@ -134,7 +134,8 @@ html.viewonly .iti-item *{cursor:default !important}
 .iacts{display:flex;gap:6px;align-items:center;flex-shrink:0;opacity:0;transition:opacity .2s}
 .iitem:hover .iacts{opacity:1}
 .abtn{width:26px;height:26px;border:none;background:var(--bg);border-radius:6px;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px}
-.drag-h{color:var(--text3);cursor:grab;padding:4px 2px;font-size:16px;flex-shrink:0;touch-action:none;line-height:1}
+.drag-h{color:var(--text3);cursor:grab;padding:4px 6px;flex-shrink:0;touch-action:none;line-height:1;display:flex;align-items:center}
+.drag-h svg{width:16px;height:16px;display:block}
 
 /* ── WEATHER ── */
 .wx{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(123,108,246,.08);border-radius:var(--r);margin:0 14px 10px;border:1px solid rgba(123,108,246,.15)}
@@ -734,14 +735,13 @@ function renderItiItem(it){
     <a href="${mapUrl}" target="_blank" onclick="event.stopPropagation()" style="color:var(--text3);padding:4px 2px;flex-shrink:0;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:16px;line-height:1">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
     </a>
-    <div class="drag-h">⠿</div>
   </div>`;
 }
 
 function initItiSort(){
   const el=document.getElementById('ilist');
   if(!el||!window.Sortable) return;
-  Sortable.create(el,{handle:'.drag-h',animation:150,onEnd(ev){
+  Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,onEnd(ev){
     const others=S.itiItems.filter(i=>!(i.date===S.date&&!i.isFlight));
     const day=S.itiItems.filter(i=>i.date===S.date&&!i.isFlight);
     const [m]=day.splice(ev.oldIndex,1);
@@ -893,7 +893,7 @@ function initPieChart(){
 function initExpSort(){
   document.querySelectorAll('#preList,.elist-g').forEach(el=>{
     if(!window.Sortable) return;
-    Sortable.create(el,{animation:150,onEnd(){
+    Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,onEnd(){
       const ids=[...el.querySelectorAll('.eitem[data-id]')].map(e=>e.dataset.id);
       if(el.id==='preList'){
         S.preExpenses=ids.map(id=>S.preExpenses.find(e=>e.id===id)).filter(Boolean);
@@ -1029,7 +1029,6 @@ function renderTodoItem(t){
       ${t.title}
       ${t.date?`<div class="tdate">📅 ${t.date}</div>`:''}
     </div>
-    <div class="drag-h">⠿</div>
   </div>`;
 }
 function initSwipeDelete(){
@@ -1048,7 +1047,7 @@ function initSwipeDelete(){
 function initTodoSort(){
   document.querySelectorAll('.todo-group').forEach(el=>{
     if(!window.Sortable) return;
-    Sortable.create(el,{handle:'.drag-h',animation:150,group:'todos',onEnd(ev){
+    Sortable.create(el,{animation:150,group:'todos',delay:600,delayOnTouchOnly:true,onEnd(ev){
       // 跨分類拖曳：更新該 todo 的 cat
       const movedId=ev.item.dataset.id;
       const newCat=ev.to.dataset.cat||'';
