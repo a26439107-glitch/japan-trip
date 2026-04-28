@@ -78,8 +78,8 @@ button,input,select,textarea{font-family:inherit}
 
 /* ── DRAG STATES (Sortable.js) ── */
 .sortable-chosen{transform:scale(1.03);box-shadow:0 10px 28px rgba(0,0,0,.45);background:var(--card2)!important;z-index:10;border-radius:var(--r)}
-.sortable-ghost{opacity:.25}
-.sortable-drag,.sortable-fallback{cursor:grabbing;opacity:.95;background:var(--card2)!important;box-shadow:0 14px 36px rgba(0,0,0,.55)!important;border-radius:var(--r)!important}
+.sortable-ghost{opacity:.15!important;background:transparent!important;box-shadow:none!important}
+.sortable-drag,.sortable-fallback{cursor:grabbing;opacity:.97;background:#252538!important;box-shadow:0 14px 36px rgba(0,0,0,.65)!important;border-radius:12px!important;outline:1.5px solid rgba(139,92,246,.35)}
 .sortable-chosen::after,.sortable-ghost::after{display:none!important}
 body.sorting .iitem::after{display:none!important}
 @keyframes liftPulse{0%{transform:scale(1)}50%{transform:scale(1.04)}100%{transform:scale(1.03)}}
@@ -767,7 +767,7 @@ function initItiSort(){
   if(viewOnly) return;
   const el=document.getElementById('ilist');
   if(!el||!window.Sortable) return;
-  Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,
+  Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,forceFallback:true,
     onChoose(ev){ navigator.vibrate?.(15); document.body.classList.add('sorting'); applyDragStyle(ev.item); },
     onUnchoose(ev){ removeDragStyle(ev.item); },
     onEnd(ev){
@@ -924,7 +924,7 @@ function initExpSort(){
   if(viewOnly) return;
   document.querySelectorAll('#preList,.elist-g').forEach(el=>{
     if(!window.Sortable) return;
-    Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,
+    Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,forceFallback:true,
       onChoose(ev){ navigator.vibrate?.(15); document.body.classList.add('sorting'); applyDragStyle(ev.item); },
       onUnchoose(ev){ removeDragStyle(ev.item); },
       onEnd(ev){
@@ -1071,7 +1071,7 @@ function initTodoSort(){
   if(viewOnly) return;
   document.querySelectorAll('.todo-group').forEach(el=>{
     if(!window.Sortable) return;
-    Sortable.create(el,{animation:150,group:'todos',delay:600,delayOnTouchOnly:true,
+    Sortable.create(el,{animation:150,group:'todos',delay:600,delayOnTouchOnly:true,forceFallback:true,
       onChoose(ev){ navigator.vibrate?.(15); document.body.classList.add('sorting'); applyDragStyle(ev.item); },
       onUnchoose(ev){ removeDragStyle(ev.item); },
       onEnd(ev){
