@@ -77,10 +77,10 @@ button,input,select,textarea{font-family:inherit}
 .tab-area::-webkit-scrollbar{display:none}
 
 /* ── DRAG STATES (Sortable.js, forceFallback:true) ── */
-/* 原位置留空，視覺上「卡片被拿起來了」 */
-.sortable-ghost{opacity:0!important;background:transparent!important;box-shadow:none!important}
-/* 手指下浮動的卡片：實心背景 + 陰影，明確的「被拿起」感 */
-.sortable-fallback{background:#252538!important;box-shadow:0 12px 32px rgba(0,0,0,.55)!important;border-radius:12px!important;cursor:grabbing}
+/* 原位置完全消失，其他卡片即時補位、平順讓出新空間 */
+.sortable-ghost{display:none!important}
+/* 手指下浮動的卡片：半透明跟著手指 */
+.sortable-fallback{background:var(--card)!important;box-shadow:0 14px 36px rgba(0,0,0,.5)!important;border-radius:var(--r)!important;cursor:grabbing!important;opacity:.75!important}
 /* 拖曳時隱藏行程的時間軸連接線 */
 body.sorting .iitem::after{display:none!important}
 
@@ -344,12 +344,12 @@ const ICAT = {
   other:    {l:'其他',  i:'📌', c:'#8395a7'},
 };
 const ECAT = {
-  food:          {l:'餐飲', i:'🍜', c:'#ff9f43'},
-  transport:     {l:'交通', i:'🚆', c:'#54a0ff'},
-  accommodation: {l:'住宿', i:'🏨', c:'#ff6b6b'},
-  shopping:      {l:'購物', i:'🛍', c:'#00d2d3'},
-  activity:      {l:'活動', i:'🎌', c:'#1dd1a1'},
-  other:         {l:'其他', i:'📌', c:'#8395a7'},
+  food:          {l:'餐飲', i:'🍜', c:'#a78bfa'},
+  transport:     {l:'交通', i:'🚆', c:'#818cf8'},
+  accommodation: {l:'住宿', i:'🏨', c:'#e879f9'},
+  shopping:      {l:'購物', i:'🛍', c:'#c084fc'},
+  activity:      {l:'活動', i:'🎌', c:'#7c3aed'},
+  other:         {l:'其他', i:'📌', c:'#94a3b8'},
 };
 
 // ═══════════════════════════════════════════════
@@ -618,6 +618,7 @@ function switchTab(tab){
 // RENDER CONTENT
 // ═══════════════════════════════════════════════
 let pieChart=null;
+let _rcItems=[];  // 暫存掃描收據的品項，供 saveReceipt 使用
 function renderContent(){
   const area=document.getElementById('tabArea');
   if(S.tab==='iti')       area.innerHTML=renderIti();
@@ -783,7 +784,7 @@ function renderExp(){
 
   const tw=v=>'NT$'+Math.round(v*rate).toLocaleString();
   // ── Hero summary card（參考設計：總支出 + 筆數 + 預算進度）
-  const barColor=budPct>90?'linear-gradient(90deg,#f87171,#ef4444)':'linear-gradient(90deg,#fbbf24,#f97316)';
+  const barColor=budPct>90?'linear-gradient(90deg,#f87171,#ef4444)':'linear-gradient(90deg,#7c3aed,#a78bfa)';
   let h=`<div style="padding-top:18px">
     <div class="card" style="padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
@@ -1266,6 +1267,11 @@ function openAddExp(pre={}){
     </div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:10px" id="twdPreview"></div>
     <div class="fg"><label class="fl">備註</label><input class="fi" id="eNote" placeholder="..." value="${pre.note||''}"></div>
+    ${pre.items&&pre.items.length?`<div style="background:var(--card2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px;font-weight:600">品項明細</div>
+      ${pre.items.map(it=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="flex:1;margin-right:8px">${it.name}</span><span style="color:var(--text2)">${it.amount?'¥'+it.amount.toLocaleString():'-'}</span></div>`).join('')}
+      <div style="display:flex;justify-content:space-between;padding-top:8px;margin-top:4px;font-size:13px;font-weight:700"><span>總計</span><span>¥${pre.amount.toLocaleString()}</span></div>
+    </div>`:''}
     <button class="btn btn-p" onclick="saveExp('${pre.id||''}')">${pre.id?'儲存':'新增支出'}</button>
     ${pre.id?`<button class="btn btn-d" onclick="delExp('${pre.id}')">刪除</button>`:''}`;
   openInlineForm(pre.id?'編輯支出':'新增支出', html);
@@ -1279,7 +1285,8 @@ function updateTWD(){
 function saveExp(eid){
   const title=document.getElementById('eTitle').value;
   if(!title){alert('請填寫名稱');return;}
-  const item={id:eid||uid('e'),date:document.getElementById('eDate').value,cat:document.getElementById('eCat').value,title,amount:parseInt(document.getElementById('eAmt').value)||0,note:document.getElementById('eNote').value};
+  const existing=eid?S.expenses.find(e=>e.id===eid):null;
+  const item={id:eid||uid('e'),date:document.getElementById('eDate').value,cat:document.getElementById('eCat').value,title,amount:parseInt(document.getElementById('eAmt').value)||0,note:document.getElementById('eNote').value,items:existing?.items||[]};
   if(eid){const idx=S.expenses.findIndex(e=>e.id===eid);if(idx>=0)S.expenses[idx]=item;}
   else S.expenses.push(item);
   save(); closeSheet(); renderStrip(); renderContent();
@@ -1327,6 +1334,7 @@ function delPreExp(id){ S.preExpenses=S.preExpenses.filter(e=>e.id!==id); save()
 // RECEIPT SCANNER
 // ═══════════════════════════════════════════════
 function openReceipt(){
+  const todayIso=new Date().toISOString().split('T')[0];
   const html=`
     <label class="rec-upload" for="rcFile">
       <div style="font-size:38px;margin-bottom:10px">📷</div>
@@ -1345,10 +1353,18 @@ function openReceipt(){
     </div>
     <div class="fg"><label class="fl">店名</label><input class="fi" id="rcStore" placeholder="自動填入"></div>
     <div class="frow">
-      <div class="fg"><label class="fl">金額 (JPY)</label><input class="fi" id="rcAmt" type="number" placeholder="0"></div>
+      <div class="fg"><label class="fl">日期</label><input class="fi" id="rcDate" type="date" value="${todayIso}"></div>
       <div class="fg"><label class="fl">分類</label><select class="fi" id="rcCat">${Object.entries(ECAT).map(([k,v])=>`<option value="${k}">${v.i} ${v.l}</option>`).join('')}</select></div>
     </div>
-    <div class="fg"><label class="fl">品項備註</label><input class="fi" id="rcItems" placeholder="自動填入"></div>
+    <div id="rcItemsList" style="display:none;background:var(--card2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px;font-weight:600">品項明細</div>
+      <div id="rcItemsContent"></div>
+      <div style="display:flex;justify-content:space-between;padding-top:8px;margin-top:4px;border-top:1px solid var(--border);font-size:13px;font-weight:700">
+        <span>總計</span><span id="rcTotal">¥0</span>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">總金額 (JPY)</label><input class="fi" id="rcAmt" type="number" placeholder="0"></div>
+    <div class="fg"><label class="fl">備註</label><input class="fi" id="rcNote" placeholder="自動填入"></div>
     <button class="btn btn-p" onclick="saveReceipt()">記錄支出</button>`;
   openSheet('掃描收據', html);
 }
@@ -1368,26 +1384,41 @@ async function processReceipt(input){
     setRcStatus('🤖 AI 辨識中...','#7b6cf6');
     try{
       const b64=e.target.result.split(',')[1];
-      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          contents:[{parts:[
-            {inline_data:{mime_type:file.type,data:b64}},
-            {text:'辨識這張日本收據。JSON格式回傳：{"store":"店名(繁體中文)","amount":數字(總金額,純整數,不含¥逗號),"items":"品項(繁體中文,逗號分隔)","tax":"內稅/外稅/免稅","category":"food/transport/accommodation/shopping/activity/other"}。只回傳JSON。'}
-          ]}],
-          generationConfig:{responseMimeType:'application/json',temperature:0.1}
-        })
+      const PROMPT='辨識這張日本收據。JSON格式回傳：{"store":"店名(繁體中文)","date":"YYYY-MM-DD格式的收據日期","total":總金額純整數,"items":[{"name":"品項名稱(繁體中文)","amount":金額純整數}],"tax":"內稅/外稅/免稅","category":"food/transport/accommodation/shopping/activity/other"}。items為每筆品項，無法辨識個別金額時amount填0。只回傳JSON。';
+      const BODY={contents:[{parts:[{inline_data:{mime_type:file.type,data:b64}},{text:PROMPT}]}],generationConfig:{responseMimeType:'application/json',temperature:0.1}};
+      const geminiCall=async(model)=>fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,{
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(BODY)
       });
-      const data=await res.json();
+      let res=await geminiCall('gemini-2.0-flash');
+      let data=await res.json();
+      // 若 2.0-flash 過載，自動 fallback 到 1.5-flash
+      if(data.error&&(data.error.code===503||/demand|overload|unavailable/i.test(data.error.message))){
+        setRcStatus('模型繁忙，切換備援模型重試...','#f0a030');
+        res=await geminiCall('gemini-1.5-flash');
+        data=await res.json();
+      }
       if(data.error) throw new Error(data.error.message);
       const txt=data.candidates?.[0]?.content?.parts?.[0]?.text;
       if(!txt) throw new Error('AI 沒有回傳結果');
       const r=JSON.parse(txt);
       document.getElementById('rcStore').value=r.store||'';
-      document.getElementById('rcAmt').value=r.amount||'';
+      document.getElementById('rcAmt').value=r.total||'';
+      if(r.date) document.getElementById('rcDate').value=r.date;
       document.getElementById('rcCat').value=r.category||'food';
-      document.getElementById('rcItems').value=`${r.items||''}${r.tax?' ('+r.tax+')':''}`;
+      document.getElementById('rcNote').value=r.tax?`(${r.tax})`:'';
+      // 品項明細列表
+      _rcItems=Array.isArray(r.items)?r.items:[];
+      if(_rcItems.length){
+        const listEl=document.getElementById('rcItemsList');
+        const contentEl=document.getElementById('rcItemsContent');
+        contentEl.innerHTML=r.items.map(it=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">
+            <span style="flex:1;margin-right:8px">${it.name}</span>
+            <span style="color:var(--text2);flex-shrink:0">${it.amount?'¥'+it.amount.toLocaleString():'-'}</span>
+          </div>`).join('');
+        document.getElementById('rcTotal').textContent='¥'+(r.total||0).toLocaleString();
+        listEl.style.display='block';
+      }
       setRcStatus('✓ AI 辨識完成，請確認資訊','#4ccea0');
     }catch(err){
       setRcStatus(`辨識失敗：${err.message}，請手動填寫`,'#e05555');
@@ -1400,7 +1431,8 @@ function setRcStatus(msg, col){
   if(el){el.textContent=msg;el.style.color=col;}
 }
 function saveReceipt(){
-  const item={id:uid('e'),date:S.date,cat:document.getElementById('rcCat').value,title:document.getElementById('rcStore').value||'收據',amount:parseInt(document.getElementById('rcAmt').value)||0,note:document.getElementById('rcItems').value};
+  const item={id:uid('e'),date:document.getElementById('rcDate').value||S.date,cat:document.getElementById('rcCat').value,title:document.getElementById('rcStore').value||'收據',amount:parseInt(document.getElementById('rcAmt').value)||0,note:document.getElementById('rcNote').value,items:_rcItems};
+  _rcItems=[];
   S.expenses.push(item);
   save(); closeSheet(); renderStrip(); renderContent();
 }
