@@ -76,12 +76,15 @@ button,input,select,textarea{font-family:inherit}
 .tab-area{flex:1;overflow-y:auto;padding-bottom:calc(var(--nav-h) + 8px);overscroll-behavior:contain}
 .tab-area::-webkit-scrollbar{display:none}
 
-/* ── DRAG STATES (Sortable.js, forceFallback:true) ── */
-/* 原位置完全消失，其他卡片即時補位、平順讓出新空間 */
-.sortable-ghost{display:none!important}
-/* 手指下浮動的卡片：半透明跟著手指 */
-.sortable-fallback{background:var(--card)!important;box-shadow:0 14px 36px rgba(0,0,0,.5)!important;border-radius:var(--r)!important;cursor:grabbing!important;opacity:.75!important}
-/* 拖曳時隱藏行程的時間軸連接線 */
+/* ── DRAG STATES (Sortable.js, forceFallback:true + animation:150) ── */
+/* Ghost = 唯一的視覺回饋（clone 已隱形）：紫色實心淡底 + 紫色描邊 + 內容半透明可辨識
+   Sortable 會把這個 ghost 在兄弟卡之間搬移，使用者拖到哪 ghost 就跟到哪 → 即時看到落點 */
+.sortable-ghost{outline:1px dashed rgba(139,92,246,.8)!important;outline-offset:-1px!important;border-radius:var(--r)!important}
+.sortable-ghost > *{opacity:.5!important}
+/* Clone = 完全隱形：避免遮住下方卡片造成視覺重疊。落點預覽完全交給 ghost（紫色虛線坑），
+   Sortable 內部仍以手指座標計算 swap，clone 是否可見不影響功能。 */
+.sortable-fallback{opacity:0!important;pointer-events:none!important}
+/* 拖曳時隱藏行程的時間軸連接線（避免線跨越拖曳中的卡片） */
 body.sorting .iitem::after{display:none!important}
 
 /* ── VIEW-ONLY MODE ── */
@@ -417,6 +420,12 @@ function normalizeS(){
   if(!S.preExpenses) S.preExpenses=[];
   if(!S.todos) S.todos=[];
   if(!S.dayTitles) S.dayTitles={};
+  // Firebase Realtime DB 在陣列中刪除元素時會留下 null 空洞，這些 null 進到 filter callback
+  // 會在存取 .date / .id 時炸掉（會讓 updateMap 拋錯，導致 switchTab 中斷）。先一律剝除。
+  S.itiItems=S.itiItems.filter(Boolean);
+  S.expenses=S.expenses.filter(Boolean);
+  S.preExpenses=S.preExpenses.filter(Boolean);
+  S.todos=S.todos.filter(Boolean);
 }
 normalizeS();
 function migratePreExpToTWD(){
@@ -515,7 +524,7 @@ function initMap(){
 }
 function updateMap(){
   rLayer.clearLayers(); mLayer.clearLayers();
-  const pts = S.itiItems.filter(i=>i.date===S.date&&i.lat&&i.lng&&!i.isFlight)
+  const pts = S.itiItems.filter(i=>i&&i.date===S.date&&i.lat&&i.lng&&!i.isFlight)
                          .sort((a,b)=>(a.time||'').localeCompare(b.time||''));
   if(!pts.length) return;
   // 偏移重疊座標：相同座標的標記用螺旋方式展開
@@ -636,7 +645,7 @@ function renderContent(){
 // ITINERARY RENDER
 // ═══════════════════════════════════════════════
 function renderIti(){
-  const day=S.itiItems.filter(i=>i.date===S.date).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  const day=S.itiItems.filter(i=>i&&i.date===S.date).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
   const wx=wxCache[S.date];
   let h='';
 
@@ -753,8 +762,9 @@ function initItiSort(){
   if(viewOnly) return;
   const el=document.getElementById('ilist');
   if(!el||!window.Sortable) return;
-  Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,forceFallback:true,
+  Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,forceFallback:true,fallbackOnBody:true,
     onChoose(){ navigator.vibrate?.(15); document.body.classList.add('sorting'); },
+    onUnchoose(){ document.body.classList.remove('sorting'); },
     onEnd(ev){
       document.body.classList.remove('sorting');
       const others=S.itiItems.filter(i=>!(i.date===S.date&&!i.isFlight));
@@ -915,8 +925,9 @@ function initExpSort(){
   if(viewOnly) return;
   document.querySelectorAll('#preList,.elist-g').forEach(el=>{
     if(!window.Sortable) return;
-    Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,forceFallback:true,
+    Sortable.create(el,{animation:150,delay:600,delayOnTouchOnly:true,forceFallback:true,fallbackOnBody:true,
       onChoose(){ navigator.vibrate?.(15); document.body.classList.add('sorting'); },
+      onUnchoose(){ document.body.classList.remove('sorting'); },
       onEnd(ev){
         document.body.classList.remove('sorting');
         const ids=[...el.querySelectorAll('.eitem[data-id]')].map(e=>e.dataset.id);
@@ -1061,8 +1072,9 @@ function initTodoSort(){
   if(viewOnly) return;
   document.querySelectorAll('.todo-group').forEach(el=>{
     if(!window.Sortable) return;
-    Sortable.create(el,{animation:150,group:'todos',delay:600,delayOnTouchOnly:true,forceFallback:true,
+    Sortable.create(el,{animation:150,group:'todos',delay:600,delayOnTouchOnly:true,forceFallback:true,fallbackOnBody:true,
       onChoose(){ navigator.vibrate?.(15); document.body.classList.add('sorting'); },
+      onUnchoose(){ document.body.classList.remove('sorting'); },
       onEnd(ev){
         document.body.classList.remove('sorting');
         // 跨分類拖曳：更新該 todo 的 cat
