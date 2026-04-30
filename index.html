@@ -347,12 +347,12 @@ const ICAT = {
   other:    {l:'其他',  i:'📌', c:'#8395a7'},
 };
 const ECAT = {
-  food:          {l:'餐飲', i:'🍜', c:'#a78bfa'},
-  transport:     {l:'交通', i:'🚆', c:'#818cf8'},
-  accommodation: {l:'住宿', i:'🏨', c:'#e879f9'},
-  shopping:      {l:'購物', i:'🛍', c:'#c084fc'},
-  activity:      {l:'活動', i:'🎌', c:'#7c3aed'},
-  other:         {l:'其他', i:'📌', c:'#94a3b8'},
+  food:          {l:'餐飲', i:'🍜', c:'#5b21b6'},  // 深紫（violet-800）
+  transport:     {l:'交通', i:'🚆', c:'#7c3aed'},  // 深紫（violet-600）
+  accommodation: {l:'住宿', i:'🏨', c:'#8b5cf6'},  // 主色紫 ← 中間色（violet-500）
+  shopping:      {l:'購物', i:'🛍', c:'#a78bfa'},  // 淺紫（violet-400）
+  activity:      {l:'活動', i:'🎌', c:'#c4b5fd'},  // 淺紫（violet-300）
+  other:         {l:'其他', i:'📌', c:'#ddd6fe'},  // 最淺紫（violet-200）
 };
 
 // ═══════════════════════════════════════════════
@@ -913,10 +913,11 @@ function initPieChart(){
   if(pieChart){ pieChart.destroy(); pieChart=null; }
   const cats={};
   S.expenses.forEach(e=>{ cats[e.cat]=(cats[e.cat]||0)+e.amount; });
-  const keys=Object.keys(cats);
+  // 依 ECAT 定義順序排列切片，讓圓餅圖按色階（深→淺）順時針顯示，而不是依輸入順序
+  const keys=Object.keys(ECAT).filter(k=>cats[k]>0);
   pieChart=new Chart(cvs,{
     type:'doughnut',
-    data:{labels:keys.map(k=>(ECAT[k]||ECAT.other).l),datasets:[{data:Object.values(cats),backgroundColor:keys.map(k=>(ECAT[k]||ECAT.other).c),borderWidth:0}]},
+    data:{labels:keys.map(k=>ECAT[k].l),datasets:[{data:keys.map(k=>cats[k]),backgroundColor:keys.map(k=>ECAT[k].c),borderWidth:0}]},
     options:{responsive:true,plugins:{legend:{display:false}},cutout:'65%'}
   });
 }
