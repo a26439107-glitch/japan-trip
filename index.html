@@ -627,7 +627,46 @@ function switchTab(tab){
 // RENDER CONTENT
 // ═══════════════════════════════════════════════
 let pieChart=null;
-let _rcItems=[];  // 暫存掃描收據的品項，供 saveReceipt 使用
+// ── 品項編輯器（共用於掃描收據 & 編輯支出）──
+function renderItemsEditor(items, contId){
+  const rows=(items&&items.length?items:[]).map((it,i)=>itemRowHtml(contId,it.name||'',it.amount||0,i)).join('');
+  return `<div style="background:var(--card2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:11px;color:var(--text2);font-weight:600">品項明細</div>
+      <button type="button" onclick="addItemRow('${contId}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);background:transparent;color:var(--text2);border-radius:6px;cursor:pointer">＋ 新增</button>
+    </div>
+    <div id="${contId}">${rows}</div>
+    <div style="display:flex;justify-content:space-between;padding-top:8px;margin-top:4px;border-top:1px solid var(--border);font-size:13px;font-weight:700">
+      <span>總計</span><span id="${contId}_total">¥0</span>
+    </div>
+  </div>`;
+}
+function itemRowHtml(contId,name,amount){
+  return `<div class="item-row" style="display:flex;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
+    <input class="item-name" value="${(name||'').replace(/"/g,'&quot;')}" placeholder="品項" style="flex:1;min-width:0;border:none;background:transparent;font-size:13px;color:var(--text);padding:4px 0">
+    <span style="font-size:12px;color:var(--text3)">¥</span>
+    <input class="item-amt" type="number" value="${amount||''}" placeholder="0" oninput="recalcItemsTotal('${contId}')" style="width:72px;border:none;background:transparent;font-size:13px;color:var(--text2);text-align:right;padding:4px 0">
+    <button type="button" onclick="this.parentElement.remove();recalcItemsTotal('${contId}')" style="border:none;background:transparent;color:var(--text3);font-size:14px;cursor:pointer;padding:0 4px">✕</button>
+  </div>`;
+}
+function addItemRow(contId){
+  const c=document.getElementById(contId); if(!c) return;
+  c.insertAdjacentHTML('beforeend',itemRowHtml(contId,'',0));
+  recalcItemsTotal(contId);
+}
+function recalcItemsTotal(contId){
+  const c=document.getElementById(contId); if(!c) return 0;
+  let sum=0; c.querySelectorAll('.item-amt').forEach(i=>sum+=parseInt(i.value)||0);
+  const t=document.getElementById(contId+'_total'); if(t) t.textContent='¥'+sum.toLocaleString();
+  return sum;
+}
+function getItemsFromDOM(contId){
+  const c=document.getElementById(contId); if(!c) return [];
+  return [...c.querySelectorAll('.item-row')].map(r=>({
+    name:r.querySelector('.item-name').value.trim(),
+    amount:parseInt(r.querySelector('.item-amt').value)||0
+  })).filter(it=>it.name||it.amount);
+}
 function renderContent(){
   const area=document.getElementById('tabArea');
   if(S.tab==='iti')       area.innerHTML=renderIti();
@@ -1280,15 +1319,12 @@ function openAddExp(pre={}){
     </div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:10px" id="twdPreview"></div>
     <div class="fg"><label class="fl">備註</label><input class="fi" id="eNote" placeholder="..." value="${pre.note||''}"></div>
-    ${pre.items&&pre.items.length?`<div style="background:var(--card2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px">
-      <div style="font-size:11px;color:var(--text2);margin-bottom:8px;font-weight:600">品項明細</div>
-      ${pre.items.map(it=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="flex:1;margin-right:8px">${it.name}</span><span style="color:var(--text2)">${it.amount?'¥'+it.amount.toLocaleString():'-'}</span></div>`).join('')}
-      <div style="display:flex;justify-content:space-between;padding-top:8px;margin-top:4px;font-size:13px;font-weight:700"><span>總計</span><span>¥${pre.amount.toLocaleString()}</span></div>
-    </div>`:''}
+    ${renderItemsEditor(pre.items||[],'expItems')}
     <button class="btn btn-p" onclick="saveExp('${pre.id||''}')">${pre.id?'儲存':'新增支出'}</button>
     ${pre.id?`<button class="btn btn-d" onclick="delExp('${pre.id}')">刪除</button>`:''}`;
   openInlineForm(pre.id?'編輯支出':'新增支出', html);
   updateTWD();
+  recalcItemsTotal('expItems');
 }
 function updateTWD(){
   const a=parseFloat(document.getElementById('eAmt')?.value)||0;
@@ -1299,7 +1335,7 @@ function saveExp(eid){
   const title=document.getElementById('eTitle').value;
   if(!title){alert('請填寫名稱');return;}
   const existing=eid?S.expenses.find(e=>e.id===eid):null;
-  const item={id:eid||uid('e'),date:document.getElementById('eDate').value,cat:document.getElementById('eCat').value,title,amount:parseInt(document.getElementById('eAmt').value)||0,note:document.getElementById('eNote').value,items:existing?.items||[]};
+  const item={id:eid||uid('e'),date:document.getElementById('eDate').value,cat:document.getElementById('eCat').value,title,amount:parseInt(document.getElementById('eAmt').value)||0,note:document.getElementById('eNote').value,items:getItemsFromDOM('expItems')};
   if(eid){const idx=S.expenses.findIndex(e=>e.id===eid);if(idx>=0)S.expenses[idx]=item;}
   else S.expenses.push(item);
   save(); closeSheet(); renderStrip(); renderContent();
@@ -1369,13 +1405,7 @@ function openReceipt(){
       <div class="fg"><label class="fl">日期</label><input class="fi" id="rcDate" type="date" value="${todayIso}"></div>
       <div class="fg"><label class="fl">分類</label><select class="fi" id="rcCat">${Object.entries(ECAT).map(([k,v])=>`<option value="${k}">${v.i} ${v.l}</option>`).join('')}</select></div>
     </div>
-    <div id="rcItemsList" style="display:none;background:var(--card2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px">
-      <div style="font-size:11px;color:var(--text2);margin-bottom:8px;font-weight:600">品項明細</div>
-      <div id="rcItemsContent"></div>
-      <div style="display:flex;justify-content:space-between;padding-top:8px;margin-top:4px;border-top:1px solid var(--border);font-size:13px;font-weight:700">
-        <span>總計</span><span id="rcTotal">¥0</span>
-      </div>
-    </div>
+    <div id="rcItemsWrap"></div>
     <div class="fg"><label class="fl">總金額 (JPY)</label><input class="fi" id="rcAmt" type="number" placeholder="0"></div>
     <div class="fg"><label class="fl">備註</label><input class="fi" id="rcNote" placeholder="自動填入"></div>
     <button class="btn btn-p" onclick="saveReceipt()">記錄支出</button>`;
@@ -1419,19 +1449,10 @@ async function processReceipt(input){
       if(r.date) document.getElementById('rcDate').value=r.date;
       document.getElementById('rcCat').value=r.category||'food';
       document.getElementById('rcNote').value=r.tax?`(${r.tax})`:'';
-      // 品項明細列表
-      _rcItems=Array.isArray(r.items)?r.items:[];
-      if(_rcItems.length){
-        const listEl=document.getElementById('rcItemsList');
-        const contentEl=document.getElementById('rcItemsContent');
-        contentEl.innerHTML=r.items.map(it=>`
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">
-            <span style="flex:1;margin-right:8px">${it.name}</span>
-            <span style="color:var(--text2);flex-shrink:0">${it.amount?'¥'+it.amount.toLocaleString():'-'}</span>
-          </div>`).join('');
-        document.getElementById('rcTotal').textContent='¥'+(r.total||0).toLocaleString();
-        listEl.style.display='block';
-      }
+      // 品項明細列表（可編輯）
+      const items=Array.isArray(r.items)?r.items:[];
+      document.getElementById('rcItemsWrap').innerHTML=renderItemsEditor(items,'rcItems');
+      recalcItemsTotal('rcItems');
       setRcStatus('✓ AI 辨識完成，請確認資訊','#4ccea0');
     }catch(err){
       setRcStatus(`辨識失敗：${err.message}，請手動填寫`,'#e05555');
@@ -1444,8 +1465,7 @@ function setRcStatus(msg, col){
   if(el){el.textContent=msg;el.style.color=col;}
 }
 function saveReceipt(){
-  const item={id:uid('e'),date:document.getElementById('rcDate').value||S.date,cat:document.getElementById('rcCat').value,title:document.getElementById('rcStore').value||'收據',amount:parseInt(document.getElementById('rcAmt').value)||0,note:document.getElementById('rcNote').value,items:_rcItems};
-  _rcItems=[];
+  const item={id:uid('e'),date:document.getElementById('rcDate').value||S.date,cat:document.getElementById('rcCat').value,title:document.getElementById('rcStore').value||'收據',amount:parseInt(document.getElementById('rcAmt').value)||0,note:document.getElementById('rcNote').value,items:getItemsFromDOM('rcItems')};
   S.expenses.push(item);
   save(); closeSheet(); renderStrip(); renderContent();
 }
