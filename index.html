@@ -468,22 +468,9 @@ function initFirebase(){
     const savedUid=localStorage.getItem('jtrip_uid');
     fbUid=savedUid||cred.user.uid;
     if(!savedUid) localStorage.setItem('jtrip_uid',fbUid);
-    setSyncStatus('syncing');
-    db.ref('trips/'+fbUid).once('value').then(snap=>{
-      const data=snap.val();
-      if(data){ S=data; }
-      normalizeS();
-      if(!S._preTWD){ migratePreExpToTWD(); save(); }
-      localStorage.setItem('jtrip25',JSON.stringify(S));
-      renderStrip(); renderContent();
-      setSyncStatus('ok');
-      // 即時監聽遠端變更（其他裝置寫入）
-      db.ref('trips/'+fbUid).on('value',snap=>{
-        if(fbWriting) return;
-        const data=snap.val();
-        if(data){ S=data; normalizeS(); localStorage.setItem('jtrip25',JSON.stringify(S)); renderStrip(); renderContent(); setSyncStatus('ok'); }
-      });
-    });
+    // ⚠️ 安全模式：開機不從雲端拉取，只用本機資料，避免雲端覆蓋本機。
+    // 待備份完成、確認雲端資料正確後，再恢復同步。
+    setSyncStatus('err');
   }).catch(()=>setSyncStatus('err'));
 }
 function setSyncStatus(s){
@@ -503,12 +490,8 @@ function linkDevice(){
 }
 function save(){
   if(viewOnly) return;
+  // ⚠️ 安全模式：只存本機，暫不寫回雲端，避免覆蓋雲端資料。
   localStorage.setItem('jtrip25',JSON.stringify(S));
-  if(db&&fbUid){
-    fbWriting=true;
-    db.ref('trips/'+fbUid).set(S).then(()=>{ fbWriting=false; setSyncStatus('ok'); }).catch(()=>{ fbWriting=false; setSyncStatus('err'); });
-  }
-  setSyncStatus('syncing');
 }
 function uid(p){ return p + Date.now() + Math.random().toString(36).slice(2,5) }
 
@@ -1510,6 +1493,15 @@ function delTodo(id){ S.todos=S.todos.filter(t=>t.id!==id); save(); renderConten
 // ═══════════════════════════════════════════════
 function openSettings(){
   const html=`
+    <div style="background:rgba(52,199,89,.12);border:1px solid var(--green,#34c759);border-radius:var(--rs);padding:14px;margin-bottom:18px">
+      <div style="font-size:14px;font-weight:800;color:var(--green,#34c759);margin-bottom:6px">💾 安全模式：先備份你的資料</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.6">目前為安全模式，開機不會自動同步，你的資料不會被雲端覆蓋。請先按下方按鈕，把資料下載成檔案存好。</div>
+      <button onclick="exportData()" style="width:100%;background:var(--green,#34c759);color:#fff;border:none;border-radius:var(--rs);padding:14px;font-size:15px;font-weight:800;cursor:pointer">⬇️ 匯出備份（下載 JSON）</button>
+      <div style="margin-top:10px">
+        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">從備份檔還原：</label>
+        <input type="file" accept="application/json" onchange="importData(this)" style="font-size:11px;color:var(--text2)">
+      </div>
+    </div>
     <div class="fg"><label class="fl">Gemini API Key（收據 AI 辨識）</label><input class="fi" id="setKey" type="password" placeholder="AIza..." value="${S.apiKey||''}"><div style="font-size:10px;color:var(--text3);margin-top:4px">用於收據掃描 AI 辨識功能，Key 僅存於本機瀏覽器。<a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent)">取得 Gemini Key</a></div></div>
     <div class="fg"><label class="fl">旅費預算 (JPY)</label><input class="fi" id="setBudget" type="number" value="${S.budget||200000}"></div>
     <button class="btn btn-p" onclick="saveSettings()">儲存設定</button>
